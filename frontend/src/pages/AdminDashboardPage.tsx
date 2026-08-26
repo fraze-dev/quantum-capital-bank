@@ -1,0 +1,96 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { getCustomers } from '../api/customers'
+import { getAccounts } from '../api/accounts'
+import { AccountsTable } from '../components/AccountsTable'
+import type { AccountSummary, CustomerSummary } from '../api/types'
+import { ApiError } from '../api/client'
+
+export function AdminDashboardPage() {
+  const [customers, setCustomers] = useState<CustomerSummary[]>([])
+  const [accounts, setAccounts] = useState<AccountSummary[]>([])
+  const [minBalanceInput, setMinBalanceInput] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  function loadAccounts(minBalance?: number) {
+    getAccounts(minBalance)
+      .then(setAccounts)
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Unable to load accounts.'))
+  }
+
+  useEffect(() => {
+    Promise.all([getCustomers(), getAccounts()])
+      .then(([customerResult, accountResult]) => {
+        setCustomers(customerResult)
+        setAccounts(accountResult)
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Unable to load data.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  function handleFilterSubmit(event: FormEvent) {
+    event.preventDefault()
+    const parsed = minBalanceInput.trim() === '' ? undefined : Number(minBalanceInput)
+    loadAccounts(Number.isNaN(parsed) ? undefined : parsed)
+  }
+
+  function clearFilter() {
+    setMinBalanceInput('')
+    loadAccounts()
+  }
+
+  return (
+    <div className="page">
+      <h1>Admin dashboard</h1>
+      {loading && <p>Loading…</p>}
+      {error && <p className="form-error">{error}</p>}
+
+      {!loading && (
+        <>
+          <section>
+            <h2>Customers</h2>
+            {customers.length === 0 ? (
+              <p className="empty-state">No customers to show.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Account numbers</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((customer) => (
+                    <tr key={customer.username}>
+                      <td>{customer.username}</td>
+                      <td>{customer.accountNumbers.join(', ') || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section>
+            <h2>Accounts</h2>
+            <form className="filter-form" onSubmit={handleFilterSubmit}>
+              <label htmlFor="minBalance">Min balance</label>
+              <input
+                id="minBalance"
+                type="number"
+                value={minBalanceInput}
+                onChange={(e) => setMinBalanceInput(e.target.value)}
+                placeholder="0"
+              />
+              <button type="submit">Filter</button>
+              <button type="button" onClick={clearFilter}>
+                Clear
+              </button>
+            </form>
+            <AccountsTable accounts={accounts} showOwner />
+          </section>
+        </>
+      )}
+    </div>
+  )
+}
