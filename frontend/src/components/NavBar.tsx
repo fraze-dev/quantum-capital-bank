@@ -15,7 +15,7 @@ export function NavBar() {
     <nav className="nav-bar">
       <div className="nav-inner">
         <Link to={user ? homePathForRole(user.role) : '/login'} className="nav-brand">
-          Bank
+          Quantum Capital
         </Link>
         {user && (
           <div className="nav-user">
