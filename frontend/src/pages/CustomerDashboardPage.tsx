@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { getAccountsByCustomer } from '../api/accounts'
-import { AccountsTable } from '../components/AccountsTable'
+import { AccountCard } from '../components/AccountCard'
 import type { AccountSummary } from '../api/types'
 import { ApiError } from '../api/client'
 
@@ -37,13 +37,36 @@ export function CustomerDashboardPage() {
 
   return (
     <div className="page">
-      <h1>Your accounts</h1>
+      <div className="page-header">
+        <h1>Welcome back{user ? `, ${user.username}` : ''}</h1>
+        <p>Here's an overview of your accounts.</p>
+      </div>
+
       {loading && <p>Loading…</p>}
       {error && <p className="form-error">{error}</p>}
+
       {!loading && !error && (
         <>
-          <p className="summary-total">Total balance: {currencyFormatter.format(total)}</p>
-          <AccountsTable accounts={accounts} />
+          <div className="stat-row">
+            <div className="stat-card">
+              <span className="stat-label">Total balance</span>
+              <span className="stat-value">{currencyFormatter.format(total)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Accounts</span>
+              <span className="stat-value">{accounts.length}</span>
+            </div>
+          </div>
+
+          {accounts.length === 0 ? (
+            <p className="empty-state">No accounts to show.</p>
+          ) : (
+            <div className="account-grid">
+              {accounts.map((account) => (
+                <AccountCard key={account.accountNumber} account={account} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

@@ -13,19 +13,22 @@ export function NavBar() {
 
   return (
     <nav className="nav-bar">
-      <Link to={user ? homePathForRole(user.role) : '/login'} className="nav-brand">
-        Bank
-      </Link>
-      {user && (
-        <div className="nav-user">
-          <span>
-            {user.username} <span className="nav-role">({user.role})</span>
-          </span>
-          <button type="button" onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
-      )}
+      <div className="nav-inner">
+        <Link to={user ? homePathForRole(user.role) : '/login'} className="nav-brand">
+          Bank
+        </Link>
+        {user && (
+          <div className="nav-user">
+            <span className="nav-username">
+              <span className="nav-avatar">{user.username.slice(0, 1)}</span>
+              {user.username} <span className="nav-role">({user.role})</span>
+            </span>
+            <button type="button" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
+        )}
+      </div>
     </nav>
   )
 }
