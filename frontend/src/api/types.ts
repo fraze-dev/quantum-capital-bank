@@ -26,3 +26,27 @@ export interface AccountSummary {
   accountType: string
   balance: number
 }
+
+export type AccountType = 'Savings' | 'Checking'
+
+export interface OpenAccountRequest {
+  ownerUsername: string
+  accountType: AccountType
+}
+
+export interface AmountRequest {
+  username: string
+  amount: number
+}
+
+export interface TransferRequest {
+  username: string
+  fromAccountNumber: string
+  toAccountNumber: string
+  amount: number
+}
+
+export interface TransferResponse {
+  from: AccountSummary
+  to: AccountSummary
+}

@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { AccountSummary } from './types'
+import type { AccountSummary, AmountRequest, OpenAccountRequest, TransferRequest, TransferResponse } from './types'
 
 export function getAccounts(minBalance?: number): Promise<AccountSummary[]> {
   const query = minBalance != null ? `?minBalance=${minBalance}` : ''
@@ -8,4 +8,32 @@ export function getAccounts(minBalance?: number): Promise<AccountSummary[]> {
 
 export function getAccountsByCustomer(username: string): Promise<AccountSummary[]> {
   return apiFetch<AccountSummary[]>(`/accounts/customer/${encodeURIComponent(username)}`)
+}
+
+export function openAccount(request: OpenAccountRequest): Promise<AccountSummary> {
+  return apiFetch<AccountSummary>('/accounts', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
+
+export function deposit(accountNumber: string, request: AmountRequest): Promise<AccountSummary> {
+  return apiFetch<AccountSummary>(`/accounts/${encodeURIComponent(accountNumber)}/deposit`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
+
+export function withdraw(accountNumber: string, request: AmountRequest): Promise<AccountSummary> {
+  return apiFetch<AccountSummary>(`/accounts/${encodeURIComponent(accountNumber)}/withdraw`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
+
+export function transfer(request: TransferRequest): Promise<TransferResponse> {
+  return apiFetch<TransferResponse>('/accounts/transfer', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
 }

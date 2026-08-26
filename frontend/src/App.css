@@ -207,16 +207,33 @@ button:disabled {
 }
 
 .nav-user button,
-.filter-form button[type='button'] {
+.filter-form button[type='button'],
+.account-card button[type='button'] {
   color: var(--text-h);
   background: transparent;
   border: 1px solid var(--border);
 }
 
 .nav-user button:hover,
-.filter-form button[type='button']:hover {
+.filter-form button[type='button']:hover,
+.account-card button[type='button']:hover {
   background: var(--surface-hover);
   opacity: 1;
+}
+
+select {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
 .auth-form button {
@@ -254,6 +271,31 @@ button:disabled {
   font-weight: 700;
   color: var(--text-h);
   letter-spacing: -0.5px;
+}
+
+/* Panels (forms outside cards, e.g. transfer / open account) */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.inline-form-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.inline-form-row-controls select,
+.inline-form-row-controls input {
+  flex: 1 1 160px;
 }
 
 /* Account cards */
@@ -306,6 +348,27 @@ button:disabled {
   font-weight: 700;
   color: var(--text-h);
   letter-spacing: -0.5px;
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.account-actions button {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-form input {
+  padding: 8px 10px;
 }
 
 /* Sections + tables */

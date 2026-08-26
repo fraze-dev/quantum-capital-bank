@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { getAccountsByCustomer } from '../api/accounts'
 import { AccountCard } from '../components/AccountCard'
+import { NewAccountForm } from '../components/NewAccountForm'
+import { TransferForm } from '../components/TransferForm'
 import type { AccountSummary } from '../api/types'
 import { ApiError } from '../api/client'
 
@@ -33,6 +35,24 @@ export function CustomerDashboardPage() {
     }
   }, [user])
 
+  function handleAccountUpdated(updated: AccountSummary) {
+    setAccounts((prev) => prev.map((account) => (account.accountNumber === updated.accountNumber ? updated : account)))
+  }
+
+  function handleAccountCreated(created: AccountSummary) {
+    setAccounts((prev) => [...prev, created])
+  }
+
+  function handleTransferred(from: AccountSummary, to: AccountSummary) {
+    setAccounts((prev) =>
+      prev.map((account) => {
+        if (account.accountNumber === from.accountNumber) return from
+        if (account.accountNumber === to.accountNumber) return to
+        return account
+      }),
+    )
+  }
+
   const total = accounts.reduce((sum, account) => sum + account.balance, 0)
 
   return (
@@ -45,7 +65,7 @@ export function CustomerDashboardPage() {
       {loading && <p>Loading…</p>}
       {error && <p className="form-error">{error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && user && (
         <>
           <div className="stat-row">
             <div className="stat-card">
@@ -63,10 +83,18 @@ export function CustomerDashboardPage() {
           ) : (
             <div className="account-grid">
               {accounts.map((account) => (
-                <AccountCard key={account.accountNumber} account={account} />
+                <AccountCard
+                  key={account.accountNumber}
+                  account={account}
+                  username={user.username}
+                  onUpdated={handleAccountUpdated}
+                />
               ))}
             </div>
           )}
+
+          <TransferForm username={user.username} accounts={accounts} onTransferred={handleTransferred} />
+          <NewAccountForm username={user.username} onCreated={handleAccountCreated} />
         </>
       )}
     </div>
