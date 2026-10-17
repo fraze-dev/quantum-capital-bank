@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Quantum Capital banking app. ASP.NET Core API on Lambda behind an HTTP API,
+  React site in a private S3 bucket, both served from one CloudFront distribution
+  (site at /, API at /api/*).
+
+Parameters:
+  MongoConnectionString:
+    Type: String
+    NoEcho: true
+    Description: MongoDB Atlas connection string (mongodb+srv://...). Passed in by deploy.ps1 from dotnet user-secrets.
+  MongoDatabaseName:
+    Type: String
+    Default: BankApiDb
+  JwtSigningKey:
+    Type: String
+    NoEcho: true
+    Description: Secret used to sign login tokens. Passed in by deploy.ps1 from dotnet user-secrets.
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for the "admin" login. Passed in by deploy.ps1 from dotnet user-secrets.
+
+Resources:
+  # --- API ---------------------------------------------------------------
+
+  BankHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  BankApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./BankApi/
+      Handler: BankApi
+      Runtime: dotnet10
+      Architectures: [arm64]
+      MemorySize: 1024
+      Timeout: 30
+      Environment:
+        Variables:
+          MongoDb__ConnectionString: !Ref MongoConnectionString
+          MongoDb__DatabaseName: !Ref MongoDatabaseName
+          Jwt__SigningKey: !Ref JwtSigningKey
+          Seed__AdminPassword: !Ref AdminPassword
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BankHttpApi
+            Path: /api/{proxy+}
+            Method: ANY
+
+  # Created up front so logs expire instead of piling up forever.
+  BankApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${BankApiFunction}
+      RetentionInDays: 14
+
+  # --- Site --------------------------------------------------------------
+
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Only this CloudFront distribution may read the bucket.
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${SiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+  SiteOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-site-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # React Router uses real paths (/dashboard, /admin, ...). Anything without a
+  # file extension is a client-side route, so serve index.html for it. Done here
+  # rather than with distribution-wide error pages so API 403/404s pass through.
+  SpaRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-spa-rewrite
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Serve index.html for client-side routes
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          if (!request.uri.includes('.')) {
+            request.uri = '/index.html';
+          }
+          return request;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Quantum Capital banking app
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt SiteOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: api
+            DomainName: !Sub ${BankHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachedMethods: [GET, HEAD]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+
+Outputs:
+  SiteUrl:
+    Description: Public URL of the app
+    Value: !Sub https://${Distribution.DomainName}
+  SiteBucketName:
+    Description: Bucket the built React site is uploaded to
+    Value: !Ref SiteBucket
+  DistributionId:
+    Description: CloudFront distribution to invalidate after uploading the site
+    Value: !Ref Distribution
+  ApiDirectUrl:
+    Description: API Gateway endpoint, bypassing CloudFront (for debugging)
+    Value: !GetAtt BankHttpApi.ApiEndpoint

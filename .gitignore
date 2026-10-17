@@ -1,2 +1,7 @@
+# SAM build output
+.aws-sam/
+
+# .NET build output (BankApi has its own .gitignore; this covers BankApi.Tests)
 bin/
 obj/
+TestResults/

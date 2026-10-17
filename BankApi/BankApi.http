@@ -1,0 +1,162 @@
+@BankApi_HostAddress = http://localhost:5167
+# To hit the deployed app instead, swap in the CloudFront URL:
+# @BankApi_HostAddress = https://d168fzbhwdwvz0.cloudfront.net
+
+# The admin password lives in user-secrets (Seed:AdminPassword), not in the
+# repo. Paste it here locally to use the admin requests, but don't commit it:
+#   dotnet user-secrets list --project BankApi | Select-String AdminPassword
+@AdminPassword = paste-admin-password-here
+
+### Log in as a customer (run this first; later requests reuse its token)
+# @name customerLogin
+POST {{BankApi_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "jsmith",
+  "password": "pass123"
+}
+
+### Log in as admin
+# @name adminLogin
+POST {{BankApi_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "{{AdminPassword}}"
+}
+
+### Wrong password -> 401
+POST {{BankApi_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "jsmith",
+  "password": "wrongpassword"
+}
+
+### Register a new customer (no token needed)
+POST {{BankApi_HostAddress}}/api/v1/customers
+Content-Type: application/json
+
+{
+  "username": "tnewuser",
+  "password": "hunter2"
+}
+
+### No token -> 401
+GET {{BankApi_HostAddress}}/api/v1/accounts/customer/jsmith
+
+
+# --- As the customer -------------------------------------------------------
+
+### My accounts
+GET {{BankApi_HostAddress}}/api/v1/accounts/customer/jsmith
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+
+### Someone else's accounts -> 403
+GET {{BankApi_HostAddress}}/api/v1/accounts/customer/agarcia
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+
+### Recent activity on one account
+GET {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/transactions?limit=10
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+
+### Deposit
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/deposit
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "amount": 25
+}
+
+### Withdraw
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/withdraw
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "amount": 25
+}
+
+### Transfer between my accounts
+POST {{BankApi_HostAddress}}/api/v1/accounts/transfer
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "fromAccountNumber": "CHK-1002",
+  "toAccountNumber": "SAV-1001",
+  "amount": 10
+}
+
+### Open a new account
+POST {{BankApi_HostAddress}}/api/v1/accounts
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "ownerUsername": "jsmith",
+  "accountType": "Savings"
+}
+
+
+# --- As admin ----------------------------------------------------------------
+
+### All customers
+GET {{BankApi_HostAddress}}/api/v1/customers
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### All accounts with balance >= 500
+GET {{BankApi_HostAddress}}/api/v1/accounts?minBalance=500
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### All transactions for one customer (filters: username, accountNumber, from, to, limit)
+GET {{BankApi_HostAddress}}/api/v1/transactions?username=jsmith&limit=20
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### Freeze an account (status: Active | Frozen | Closed; a reason is required)
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Frozen",
+  "reason": "Suspicious activity reported"
+}
+
+### Unfreeze it
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Active",
+  "reason": "Cleared after review"
+}
+
+### Disable a customer's login (status: Active | Disabled)
+POST {{BankApi_HostAddress}}/api/v1/customers/agarcia/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Disabled",
+  "reason": "Identity verification failed"
+}
+
+### Re-enable it
+POST {{BankApi_HostAddress}}/api/v1/customers/agarcia/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Active",
+  "reason": "Verified in branch"
+}
+
+### Audit log, newest first (optional targetId = account number or username)
+GET {{BankApi_HostAddress}}/api/v1/audit?limit=20
+Authorization: Bearer {{adminLogin.response.body.$.token}}
