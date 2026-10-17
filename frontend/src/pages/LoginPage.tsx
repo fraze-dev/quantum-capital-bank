@@ -58,6 +58,36 @@ export function LoginPage() {
           Need an account? <Link to="/register">Register</Link>
         </p>
       </form>
+
+      <section className="demo-logins" aria-labelledby="demo-logins-title">
+        <h2 id="demo-logins-title">Try the demo</h2>
+        <p>Click a login to fill it in.</p>
+        <ul>
+          {DEMO_LOGINS.map((demo) => (
+            <li key={demo.username}>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername(demo.username)
+                  setPassword(demo.password)
+                }}
+              >
+                <span className="demo-login-who">{demo.label}</span>
+                <span className="demo-login-credentials">
+                  {demo.username} / {demo.password}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   )
 }
+
+// Public demo accounts (see DemoData on the API). The real admin login is not listed.
+const DEMO_LOGINS = [
+  { label: 'Customer', username: 'jsmith', password: 'pass123' },
+  { label: 'Customer with a frozen account', username: 'mlee', password: 'pass789' },
+  { label: 'Staff, read-only', username: 'auditor', password: 'auditor123' },
+]

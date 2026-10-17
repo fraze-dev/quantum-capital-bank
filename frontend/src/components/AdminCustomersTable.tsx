@@ -1,12 +1,11 @@
 import { Fragment, useState } from 'react'
 import { changeCustomerStatus } from '../api/customers'
 import type { CustomerSummary } from '../api/types'
+import { useAuth } from '../auth/useAuth'
 import { CustomerLink } from './CustomerLink'
 import { customerStatusAction } from './customerStatusAction'
 import { ReasonPrompt } from './ReasonPrompt'
 import { StatusBadge } from './StatusBadge'
-
-const COLUMNS = 4
 
 export function AdminCustomersTable({
   customers,
@@ -16,6 +15,9 @@ export function AdminCustomersTable({
   onChanged: (updated: CustomerSummary) => void
 }) {
   const [pending, setPending] = useState<string | null>(null)
+  // Auditors see the same table without the actions (the API refuses them anyway).
+  const canChange = useAuth().user?.role === 'Admin'
+  const columns = canChange ? 4 : 3
 
   if (customers.length === 0) {
     return <p className="empty-state">No customers to show.</p>
@@ -28,7 +30,7 @@ export function AdminCustomersTable({
           <th>Username</th>
           <th>Account numbers</th>
           <th>Status</th>
-          <th>Actions</th>
+          {canChange && <th>Actions</th>}
         </tr>
       </thead>
       <tbody>
@@ -51,15 +53,17 @@ export function AdminCustomersTable({
                 <td>
                   <StatusBadge status={customer.status} />
                 </td>
-                <td className="row-actions">
-                  <button type="button" className="link-button" onClick={() => setPending(customer.username)}>
-                    {actionLabel}
-                  </button>
-                </td>
+                {canChange && (
+                  <td className="row-actions">
+                    <button type="button" className="link-button" onClick={() => setPending(customer.username)}>
+                      {actionLabel}
+                    </button>
+                  </td>
+                )}
               </tr>
               {pending === customer.username && (
                 <tr className="prompt-row">
-                  <td colSpan={COLUMNS}>
+                  <td colSpan={columns}>
                     <ReasonPrompt
                       title={`${actionLabel} for ${customer.username}`}
                       confirmLabel={confirmLabel}

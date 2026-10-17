@@ -1,4 +1,5 @@
-export type Role = 'Admin' | 'Customer'
+// Auditor: read-only staff, sees the admin pages but can't change anything.
+export type Role = 'Admin' | 'Auditor' | 'Customer'
 
 export interface LoginRequest {
   username: string

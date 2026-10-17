@@ -5,6 +5,7 @@ import { AdminAccountsTable } from '../components/AdminAccountsTable'
 import { AdminAuditLog } from '../components/AdminAuditLog'
 import { AdminCustomersTable } from '../components/AdminCustomersTable'
 import { AdminTransactions } from '../components/AdminTransactions'
+import { ReadOnlyBanner } from '../components/ReadOnlyBanner'
 import type { AccountSummary, CustomerSummary } from '../api/types'
 import { ApiError } from '../api/client'
 import { formatCurrency } from '../format'
@@ -68,6 +69,7 @@ export function AdminDashboardPage() {
         <h1>Admin dashboard</h1>
         <p>Overview of all customers and accounts.</p>
       </div>
+      <ReadOnlyBanner />
 
       {loading && <p>Loading…</p>}
       {error && <p className="form-error">{error}</p>}

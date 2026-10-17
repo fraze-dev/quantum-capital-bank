@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { changeAccountStatus } from '../api/accounts'
 import type { AccountStatus, AccountSummary } from '../api/types'
+import { useAuth } from '../auth/useAuth'
 import { formatCurrency } from '../format'
 import { CustomerLink } from './CustomerLink'
 import { ReasonPrompt } from './ReasonPrompt'
@@ -28,7 +29,9 @@ export function AdminAccountsTable({
   onChanged: (updated: AccountSummary) => void
   showOwner?: boolean
 }) {
-  const columns = showOwner ? 6 : 5
+  // Auditors see the same table without the actions (the API refuses them anyway).
+  const canChange = useAuth().user?.role === 'Admin'
+  const columns = 4 + (showOwner ? 1 : 0) + (canChange ? 1 : 0)
   const [pending, setPending] = useState<{ accountNumber: string; status: AccountStatus } | null>(null)
 
   if (accounts.length === 0) {
@@ -51,7 +54,7 @@ export function AdminAccountsTable({
           <th>Type</th>
           <th className="numeric">Balance</th>
           <th>Status</th>
-          <th>Actions</th>
+          {canChange && <th>Actions</th>}
         </tr>
       </thead>
       <tbody>
@@ -69,24 +72,26 @@ export function AdminAccountsTable({
               <td>
                 <StatusBadge status={account.status} />
               </td>
-              <td className="row-actions">
-                {NEXT_STATUSES[account.status].length === 0 && '—'}
-                {NEXT_STATUSES[account.status].map((status) => {
-                  const blocked = status === 'Closed' && account.balance !== 0
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      className="link-button"
-                      disabled={blocked}
-                      title={blocked ? 'Only accounts with a $0.00 balance can be closed.' : undefined}
-                      onClick={() => setPending({ accountNumber: account.accountNumber, status })}
-                    >
-                      {ACTION_LABELS[status]}
-                    </button>
-                  )
-                })}
-              </td>
+              {canChange && (
+                <td className="row-actions">
+                  {NEXT_STATUSES[account.status].length === 0 && '—'}
+                  {NEXT_STATUSES[account.status].map((status) => {
+                    const blocked = status === 'Closed' && account.balance !== 0
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        className="link-button"
+                        disabled={blocked}
+                        title={blocked ? 'Only accounts with a $0.00 balance can be closed.' : undefined}
+                        onClick={() => setPending({ accountNumber: account.accountNumber, status })}
+                      >
+                        {ACTION_LABELS[status]}
+                      </button>
+                    )
+                  })}
+                </td>
+              )}
             </tr>
             {pending?.accountNumber === account.accountNumber && (
               <tr className="prompt-row">

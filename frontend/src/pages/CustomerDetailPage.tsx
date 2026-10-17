@@ -10,6 +10,8 @@ import { AdminTransactions } from '../components/AdminTransactions'
 import { customerStatusAction } from '../components/customerStatusAction'
 import { ReasonPrompt } from '../components/ReasonPrompt'
 import { StatusBadge } from '../components/StatusBadge'
+import { ReadOnlyBanner } from '../components/ReadOnlyBanner'
+import { useAuth } from '../auth/useAuth'
 import { formatCurrency } from '../format'
 
 // Admin view of one customer: status, accounts, transactions and the admin
@@ -27,6 +29,7 @@ function CustomerDetail({ username }: { username: string }) {
   const [loading, setLoading] = useState(true)
   const [changingStatus, setChangingStatus] = useState(false)
   const [auditVersion, setAuditVersion] = useState(0)
+  const canChange = useAuth().user?.role === 'Admin'
 
   useEffect(() => {
     let cancelled = false
@@ -72,6 +75,7 @@ function CustomerDetail({ username }: { username: string }) {
       <Link to="/admin" className="back-link">
         ← Admin dashboard
       </Link>
+      <ReadOnlyBanner />
 
       {loading && <p>Loading…</p>}
       {error && <p className="form-error">{error}</p>}
@@ -86,7 +90,7 @@ function CustomerDetail({ username }: { username: string }) {
               </div>
               <p>Customer accounts, activity and admin history.</p>
             </div>
-            {!changingStatus && (
+            {canChange && !changingStatus && (
               <button type="button" className="secondary" onClick={() => setChangingStatus(true)}>
                 {statusAction.label}
               </button>

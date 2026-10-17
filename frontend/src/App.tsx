@@ -6,7 +6,7 @@ import { CustomerDashboardPage } from './pages/CustomerDashboardPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
-import { homePathForRole } from './auth/roleRouting'
+import { STAFF_ROLES, homePathForRole } from './auth/roleRouting'
 import { useAuth } from './auth/useAuth'
 import './App.css'
 
@@ -27,7 +27,7 @@ function App() {
           <Route
             path="/accounts"
             element={
-              <ProtectedRoute role="Customer">
+              <ProtectedRoute roles={['Customer']}>
                 <CustomerDashboardPage />
               </ProtectedRoute>
             }
@@ -35,7 +35,7 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute role="Admin">
+              <ProtectedRoute roles={STAFF_ROLES}>
                 <AdminDashboardPage />
               </ProtectedRoute>
             }
@@ -43,7 +43,7 @@ function App() {
           <Route
             path="/admin/customers/:username"
             element={
-              <ProtectedRoute role="Admin">
+              <ProtectedRoute roles={STAFF_ROLES}>
                 <CustomerDetailPage />
               </ProtectedRoute>
             }
