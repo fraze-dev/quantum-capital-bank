@@ -28,7 +28,9 @@ $adminPassword = Get-Secret 'Seed:AdminPassword'
 
 if (-not $SkipTests) {
     Write-Host '==> Running tests' -ForegroundColor Cyan
-    dotnet test (Join-Path $PSScriptRoot 'BankApp.slnx') --nologo
+    # Release, like CI. It also builds into bin/Release, so a local API left
+    # running from bin/Debug can't lock the files and block the deploy.
+    dotnet test (Join-Path $PSScriptRoot 'BankApp.slnx') --configuration Release --nologo
 }
 
 Write-Host '==> Building and deploying API' -ForegroundColor Cyan
