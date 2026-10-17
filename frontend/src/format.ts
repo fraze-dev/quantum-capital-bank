@@ -1,4 +1,4 @@
-import type { TransactionSummary } from './api/types'
+import type { AuditEntry, TransactionSummary } from './api/types'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 const signedCurrencyFormatter = new Intl.NumberFormat('en-US', {
@@ -32,5 +32,20 @@ export function describeTransaction(transaction: TransactionSummary): string {
       return `Transfer to ${transaction.counterpartyAccountNumber}`
     case 'OpeningBalance':
       return 'Opening balance'
+  }
+}
+
+export function describeAuditAction(entry: AuditEntry): string {
+  switch (entry.action) {
+    case 'FreezeAccount':
+      return 'Froze account'
+    case 'UnfreezeAccount':
+      return 'Unfroze account'
+    case 'CloseAccount':
+      return 'Closed account'
+    case 'DisableCustomer':
+      return 'Disabled login'
+    case 'EnableCustomer':
+      return 'Enabled login'
   }
 }

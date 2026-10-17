@@ -3,6 +3,7 @@ import { deposit, withdraw } from '../api/accounts'
 import { ApiError } from '../api/client'
 import type { AccountSummary } from '../api/types'
 import { AccountActivity } from './AccountActivity'
+import { StatusBadge } from './StatusBadge'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
@@ -59,7 +60,14 @@ export function AccountCard({
       </div>
       <span className="account-balance">{currencyFormatter.format(account.balance)}</span>
 
-      {mode === 'idle' ? (
+      {account.status !== 'Active' ? (
+        <p className={`account-status-note ${account.status.toLowerCase()}`}>
+          <StatusBadge status={account.status} />
+          {account.status === 'Frozen'
+            ? 'Deposits, withdrawals and transfers are paused. Please contact the bank.'
+            : 'This account is closed.'}
+        </p>
+      ) : mode === 'idle' ? (
         <div className="account-actions">
           <button type="button" onClick={() => startMode('deposit')}>
             Deposit

@@ -7,7 +7,8 @@ import { ApiError } from '../api/client'
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const sessionExpired = (useLocation().state as { sessionExpired?: boolean } | null)?.sessionExpired
+  // Why the user was sent back here, e.g. an expired session or a disabled account.
+  const notice = (useLocation().state as { notice?: string } | null)?.notice
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +33,7 @@ export function LoginPage() {
       <form className="auth-form" onSubmit={handleSubmit}>
         <h1>Log in</h1>
         {error && <p className="form-error">{error}</p>}
-        {!error && sessionExpired && <p className="form-error">Your session expired. Please log in again.</p>}
+        {!error && notice && <p className="form-error">{notice}</p>}
         <label htmlFor="username">Username</label>
         <input
           id="username"

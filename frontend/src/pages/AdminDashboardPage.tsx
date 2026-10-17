@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { getCustomers } from '../api/customers'
 import { getAccounts } from '../api/accounts'
-import { AccountsTable } from '../components/AccountsTable'
+import { AdminAccountsTable } from '../components/AdminAccountsTable'
+import { AdminAuditLog } from '../components/AdminAuditLog'
+import { AdminCustomersTable } from '../components/AdminCustomersTable'
 import { AdminTransactions } from '../components/AdminTransactions'
 import type { AccountSummary, CustomerSummary } from '../api/types'
 import { ApiError } from '../api/client'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+import { formatCurrency } from '../format'
 
 export function AdminDashboardPage() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([])
@@ -15,6 +16,8 @@ export function AdminDashboardPage() {
   const [minBalanceInput, setMinBalanceInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Bumped after every status change so the audit log reloads.
+  const [auditVersion, setAuditVersion] = useState(0)
 
   function loadFilteredAccounts(minBalance?: number) {
     getAccounts(minBalance)
@@ -44,6 +47,19 @@ export function AdminDashboardPage() {
     loadFilteredAccounts()
   }
 
+  function handleAccountChanged(updated: AccountSummary) {
+    const replace = (list: AccountSummary[]) =>
+      list.map((account) => (account.accountNumber === updated.accountNumber ? updated : account))
+    setAllAccounts(replace)
+    setFilteredAccounts(replace)
+    setAuditVersion((version) => version + 1)
+  }
+
+  function handleCustomerChanged(updated: CustomerSummary) {
+    setCustomers((list) => list.map((customer) => (customer.username === updated.username ? updated : customer)))
+    setAuditVersion((version) => version + 1)
+  }
+
   const totalBalance = allAccounts.reduce((sum, account) => sum + account.balance, 0)
 
   return (
@@ -69,34 +85,15 @@ export function AdminDashboardPage() {
             </div>
             <div className="stat-card">
               <span className="stat-label">Total balance</span>
-              <span className="stat-value">{currencyFormatter.format(totalBalance)}</span>
+              <span className="stat-value">{formatCurrency(totalBalance)}</span>
             </div>
           </div>
 
           <section>
             <h2>Customers</h2>
-            {customers.length === 0 ? (
-              <p className="empty-state">No customers to show.</p>
-            ) : (
-              <div className="section-card">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th>
-                      <th>Account numbers</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map((customer) => (
-                      <tr key={customer.username}>
-                        <td>{customer.username}</td>
-                        <td>{customer.accountNumbers.join(', ') || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div className="section-card table-scroll">
+              <AdminCustomersTable customers={customers} onChanged={handleCustomerChanged} />
+            </div>
           </section>
 
           <section>
@@ -115,12 +112,13 @@ export function AdminDashboardPage() {
                 Clear
               </button>
             </form>
-            <div className="section-card">
-              <AccountsTable accounts={filteredAccounts} showOwner />
+            <div className="section-card table-scroll">
+              <AdminAccountsTable accounts={filteredAccounts} onChanged={handleAccountChanged} />
             </div>
           </section>
 
           <AdminTransactions customers={customers} />
+          <AdminAuditLog reloadKey={auditVersion} />
         </>
       )}
     </div>

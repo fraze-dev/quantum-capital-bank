@@ -1,5 +1,24 @@
 import { apiFetch } from './client'
-import type { AccountSummary, AmountRequest, OpenAccountRequest, TransferRequest, TransferResponse } from './types'
+import type {
+  AccountStatus,
+  AccountSummary,
+  AmountRequest,
+  OpenAccountRequest,
+  StatusChangeRequest,
+  TransferRequest,
+  TransferResponse,
+} from './types'
+
+// Admin only: freeze, unfreeze or close an account.
+export function changeAccountStatus(
+  accountNumber: string,
+  request: StatusChangeRequest<AccountStatus>,
+): Promise<AccountSummary> {
+  return apiFetch<AccountSummary>(`/accounts/${encodeURIComponent(accountNumber)}/status`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
 
 export function getAccounts(minBalance?: number): Promise<AccountSummary[]> {
   const query = minBalance != null ? `?minBalance=${minBalance}` : ''

@@ -511,3 +511,83 @@ section {
   font-size: 13px;
   color: var(--text);
 }
+
+/* Account / customer status */
+
+.status-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.status-badge.frozen {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.status-badge.closed,
+.status-badge.disabled {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.account-status-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* Admin row actions + reason prompt */
+
+.row-actions {
+  white-space: nowrap;
+}
+
+.link-button {
+  padding: 0;
+  margin-right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.link-button:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.data-table tbody tr.prompt-row,
+.data-table tbody tr.prompt-row:hover {
+  background: var(--surface-hover);
+}
+
+.reason-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reason-prompt-title {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.reason-prompt button.secondary {
+  color: var(--text-h);
+  background: transparent;
+  border: 1px solid var(--border);
+}

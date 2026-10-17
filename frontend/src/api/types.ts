@@ -12,8 +12,11 @@ export interface LoginResponse {
   expiresAt: string
 }
 
+export type UserStatus = 'Active' | 'Disabled'
+
 export interface CustomerSummary {
   username: string
+  status: UserStatus
   accountNumbers: string[]
 }
 
@@ -22,11 +25,34 @@ export interface CreateCustomerRequest {
   password: string
 }
 
+// Only Active accounts can send or receive money.
+export type AccountStatus = 'Active' | 'Frozen' | 'Closed'
+
 export interface AccountSummary {
   accountNumber: string
   ownerUsername: string
   accountType: string
   balance: number
+  status: AccountStatus
+}
+
+export interface StatusChangeRequest<TStatus extends string> {
+  status: TStatus
+  reason: string
+}
+
+export type AuditAction = 'FreezeAccount' | 'UnfreezeAccount' | 'CloseAccount' | 'DisableCustomer' | 'EnableCustomer'
+
+export interface AuditEntry {
+  id: string
+  timestamp: string
+  performedBy: string
+  action: AuditAction
+  targetType: 'Account' | 'Customer'
+  targetId: string
+  fromStatus: string
+  toStatus: string
+  reason: string
 }
 
 export type AccountType = 'Savings' | 'Checking'

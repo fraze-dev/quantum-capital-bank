@@ -92,7 +92,10 @@ export function CustomerDashboardPage() {
             </div>
           )}
 
-          <TransferForm accounts={accounts} onTransferred={handleTransferred} />
+          <TransferForm
+            accounts={accounts.filter((account) => account.status === 'Active')}
+            onTransferred={handleTransferred}
+          />
           <NewAccountForm username={user.username} onCreated={handleAccountCreated} />
         </>
       )}

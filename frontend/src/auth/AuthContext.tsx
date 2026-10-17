@@ -11,9 +11,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    setUnauthorizedHandler(() => {
+    setUnauthorizedHandler((message) => {
       setUser(null)
-      navigate('/login', { replace: true, state: { sessionExpired: true } })
+      navigate('/login', { replace: true, state: { notice: message ?? 'Your session expired. Please log in again.' } })
     })
     return () => setUnauthorizedHandler(null)
   }, [navigate])
