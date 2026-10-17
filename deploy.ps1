@@ -6,7 +6,7 @@
 # Pass -SkipTests to deploy without running the tests first.
 
 param(
-    [string]$FrontendDir = (Join-Path $PSScriptRoot '..\bank-frontend'),
+    [string]$FrontendDir = (Join-Path $PSScriptRoot 'frontend'),
     [switch]$SkipTests
 )
 
