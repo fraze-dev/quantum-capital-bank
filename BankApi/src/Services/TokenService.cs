@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-namespace BankApi;
+namespace BankApi.Services;
 
 // Issues the signed JWT handed out at login. Every later request carries it in
 // the Authorization header, and the API reads the caller's username and role

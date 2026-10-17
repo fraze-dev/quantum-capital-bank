@@ -1,6 +1,7 @@
+using BankApi.Models;
 using MongoDB.Driver;
 
-namespace BankApi;
+namespace BankApi.Repositories;
 
 public interface ITransactionRepository
 {

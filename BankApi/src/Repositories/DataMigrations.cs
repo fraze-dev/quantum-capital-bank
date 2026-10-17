@@ -1,7 +1,9 @@
+using BankApi.Models;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 
-namespace BankApi;
+namespace BankApi.Repositories;
 
 // One-time data changes, run at startup. Each finished migration is recorded
 // in the "migrations" collection so later startups skip it with a single
@@ -11,9 +13,13 @@ public static class DataMigrations
 {
     private static readonly (string Name, Func<IMongoDatabase, Task> Run)[] All =
     {
+        // Listed first so a fresh database gets demo data before the steps
+        // below; on an existing database it's a no-op.
+        ("000-seed-demo-data", MongoSeedData.SeedAsync),
         ("001-transaction-indexes", TransactionRepository.EnsureIndexesAsync),
         ("002-opening-balances", AddOpeningBalancesAsync),
-        ("003-account-number-counters", AccountRepository.SyncAccountNumberCountersAsync)
+        ("003-account-number-counters", AccountRepository.SyncAccountNumberCountersAsync),
+        ("004-users-from-customers", CopyCustomersToUsersAsync)
     };
 
     public static async Task RunAsync(IMongoDatabase database)
@@ -65,6 +71,30 @@ public static class DataMigrations
                 BalanceAfter = account.Balance,
                 PerformedBy = "system",
                 Timestamp = now
+            }));
+        }
+    }
+
+    // Logins used to live in a "customers" collection (password hash plus a
+    // copied list of account numbers). Copy each into "users" as a Customer.
+    // The old collection is left untouched rather than renamed, so a copy of
+    // the API still running the previous version keeps working until it's
+    // redeployed; the demo-data reset removes it later.
+    private static async Task CopyCustomersToUsersAsync(IMongoDatabase database)
+    {
+        var customers = database.GetCollection<BsonDocument>("customers");
+        var users = database.GetCollection<UserDocument>(UserRepository.CollectionName);
+        DateTime now = DateTime.UtcNow;
+
+        List<BsonDocument> legacy = await customers.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
+        foreach (BsonDocument customer in legacy)
+        {
+            await IgnoreDuplicateAsync(() => users.InsertOneAsync(new UserDocument
+            {
+                Username = customer["_id"].AsString,
+                PasswordHash = customer.GetValue("Password", BsonNull.Value).IsString ? customer["Password"].AsString : null,
+                Role = Roles.Customer,
+                CreatedAt = now
             }));
         }
     }

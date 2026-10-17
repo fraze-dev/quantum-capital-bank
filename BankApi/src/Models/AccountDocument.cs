@@ -1,6 +1,6 @@
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace BankApi;
+namespace BankApi.Models;
 
 public class AccountDocument
 {

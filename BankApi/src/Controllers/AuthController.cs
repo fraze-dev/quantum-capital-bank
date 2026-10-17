@@ -1,3 +1,6 @@
+using BankApi.Dtos;
+using BankApi.Models;
+using BankApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,17 +10,16 @@ namespace BankApi.Controllers;
 [Route("api/v1/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly Bank _bank;
-    private readonly ICustomerRepository _customerRepository;
+    private readonly UserService _userService;
     private readonly TokenService _tokenService;
 
-    public AuthController(Bank bank, ICustomerRepository customerRepository, TokenService tokenService)
+    public AuthController(UserService userService, TokenService tokenService)
     {
-        _bank = bank;
-        _customerRepository = customerRepository;
+        _userService = userService;
         _tokenService = tokenService;
     }
 
+    // POST /api/v1/auth/login
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -27,41 +29,13 @@ public class AuthController : ControllerBase
             return BadRequest("Username and password are required.");
         }
 
-        // Admins and the in-memory seeded customers live in Bank; customers
-        // registered through POST /api/v1/customers only exist in MongoDB,
-        // so fall back to checking there if Bank doesn't recognize them.
-        User user = _bank.Authenticate(request.Username, request.Password);
-        if (user != null)
+        UserDocument user = await _userService.AuthenticateAsync(request.Username, request.Password);
+        if (user == null)
         {
-            return Ok(CreateLoginResponse(user.Username, user.GetRole()));
+            return Unauthorized("Invalid username or password.");
         }
 
-        CustomerDocument customer = await _customerRepository.GetByUsernameAsync(request.Username);
-        if (customer != null && PasswordUtil.Verify(customer.Password, request.Password))
-        {
-            return Ok(CreateLoginResponse(customer.Username, "Customer"));
-        }
-
-        return Unauthorized("Invalid username or password.");
+        (string token, DateTime expiresAt) = _tokenService.CreateToken(user.Username, user.Role);
+        return Ok(new LoginResponse { Username = user.Username, Role = user.Role, Token = token, ExpiresAt = expiresAt });
     }
-
-    private LoginResponse CreateLoginResponse(string username, string role)
-    {
-        (string token, DateTime expiresAt) = _tokenService.CreateToken(username, role);
-        return new LoginResponse { Username = username, Role = role, Token = token, ExpiresAt = expiresAt };
-    }
-}
-
-public class LoginRequest
-{
-    public string Username { get; set; }
-    public string Password { get; set; }
-}
-
-public class LoginResponse
-{
-    public string Username { get; set; }
-    public string Role { get; set; }
-    public string Token { get; set; }
-    public DateTime ExpiresAt { get; set; }
 }

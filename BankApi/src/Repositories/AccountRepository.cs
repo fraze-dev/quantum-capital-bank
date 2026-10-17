@@ -1,7 +1,8 @@
+using BankApi.Models;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 
-namespace BankApi;
+namespace BankApi.Repositories;
 
 public class AccountRepository : IAccountRepository
 {
@@ -38,9 +39,9 @@ public class AccountRepository : IAccountRepository
         return await _accounts.Find(a => a.AccountNumber == accountNumber).FirstOrDefaultAsync();
     }
 
-    public async Task CreateAsync(IClientSessionHandle session, AccountDocument account)
+    public async Task CreateAsync(AccountDocument account)
     {
-        await _accounts.InsertOneAsync(session, account);
+        await _accounts.InsertOneAsync(account);
     }
 
     // Adds delta to the balance in a single atomic database operation and

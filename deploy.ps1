@@ -21,12 +21,13 @@ function Get-Secret([string]$name) {
 }
 $connectionString = Get-Secret 'MongoDb:ConnectionString'
 $jwtSigningKey = Get-Secret 'Jwt:SigningKey'
+$adminPassword = Get-Secret 'Seed:AdminPassword'
 
 Write-Host '==> Building and deploying API' -ForegroundColor Cyan
 Push-Location $PSScriptRoot
 try {
     sam build
-    sam deploy --parameter-overrides "MongoConnectionString=`"$connectionString`"" "JwtSigningKey=`"$jwtSigningKey`""
+    sam deploy --parameter-overrides "MongoConnectionString=`"$connectionString`"" "JwtSigningKey=`"$jwtSigningKey`"" "AdminPassword=`"$adminPassword`""
 }
 finally {
     Pop-Location

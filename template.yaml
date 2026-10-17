@@ -17,6 +17,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Secret used to sign login tokens. Passed in by deploy.ps1 from dotnet user-secrets.
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for the "admin" login. Passed in by deploy.ps1 from dotnet user-secrets.
 
 Resources:
   # --- API ---------------------------------------------------------------
@@ -38,6 +42,7 @@ Resources:
           MongoDb__ConnectionString: !Ref MongoConnectionString
           MongoDb__DatabaseName: !Ref MongoDatabaseName
           Jwt__SigningKey: !Ref JwtSigningKey
+          Seed__AdminPassword: !Ref AdminPassword
       Events:
         Api:
           Type: HttpApi

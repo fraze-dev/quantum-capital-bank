@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace BankApi;
+namespace BankApi.Services;
 
-// Thin wrapper around ASP.NET Core Identity's PasswordHasher<TUser> so both
-// the in-memory Bank users (User/Admin/Customer) and the MongoDB-backed
-// CustomerDocument can hash and verify passwords the same way, without
-// needing a real "user" object to do it. The underlying algorithm is PBKDF2
+// Thin wrapper around ASP.NET Core Identity's PasswordHasher<TUser> so the
+// app can hash and verify passwords stored on UserDocument without needing
+// an Identity "user" object to do it. The underlying algorithm is PBKDF2
 // with a random per-password salt — the same approach flagged as the "real"
 // answer in the project's own design-defense notes, just using the
 // framework's well-tested implementation instead of hand-rolling the crypto.
@@ -23,6 +22,11 @@ public static class PasswordUtil
 
     public static bool Verify(string hashedPassword, string providedPassword)
     {
+        if (string.IsNullOrEmpty(hashedPassword) || providedPassword == null)
+        {
+            return false;
+        }
+
         try
         {
             PasswordVerificationResult result = Hasher.VerifyHashedPassword(null!, hashedPassword, providedPassword);

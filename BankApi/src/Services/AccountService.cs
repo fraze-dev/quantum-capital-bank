@@ -1,7 +1,9 @@
+using BankApi.Models;
+using BankApi.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
-namespace BankApi;
+namespace BankApi.Services;
 
 // Everything that changes an account's balance goes through here. Each
 // operation runs in a MongoDB transaction, so the balance change(s) and the
@@ -12,44 +14,31 @@ public class AccountService
 
     private readonly IMongoClient _client;
     private readonly IAccountRepository _accounts;
-    private readonly ICustomerRepository _customers;
     private readonly ITransactionRepository _transactions;
 
-    public AccountService(
-        IMongoClient client,
-        IAccountRepository accounts,
-        ICustomerRepository customers,
-        ITransactionRepository transactions)
+    public AccountService(IMongoClient client, IAccountRepository accounts, ITransactionRepository transactions)
     {
         _client = client;
         _accounts = accounts;
-        _customers = customers;
         _transactions = transactions;
     }
 
     public static decimal OverdraftLimitFor(AccountDocument account) =>
         account.AccountType == "Checking" ? CheckingOverdraftLimit : 0m;
 
+    // A new account starts at zero, so there's no ledger entry to write.
     public async Task<AccountDocument> OpenAccountAsync(string ownerUsername, string accountType, string prefix)
     {
-        // Taken outside the transaction: like a database sequence, a number
-        // that ends up unused just leaves a gap.
-        string accountNumber = await _accounts.GetNextAccountNumberAsync(prefix);
-
         var account = new AccountDocument
         {
-            AccountNumber = accountNumber,
+            AccountNumber = await _accounts.GetNextAccountNumberAsync(prefix),
             OwnerUsername = ownerUsername,
             AccountType = accountType,
             Balance = 0m
         };
 
-        return await RunInTransactionAsync(async session =>
-        {
-            await _accounts.CreateAsync(session, account);
-            await _customers.AddAccountNumberAsync(session, ownerUsername, accountNumber);
-            return account;
-        });
+        await _accounts.CreateAsync(account);
+        return account;
     }
 
     public Task<AccountDocument> DepositAsync(AccountDocument account, decimal amount, string performedBy)

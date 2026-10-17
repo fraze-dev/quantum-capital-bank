@@ -1,5 +1,6 @@
 using Amazon.Lambda.AspNetCoreServer.Hosting;
-using BankApi;
+using BankApi.Repositories;
+using BankApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
@@ -11,11 +12,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
-
-// AddSingleton ensures ASP.NET Core creates
-// it once and reuses that same instance for every request.
-
-builder.Services.AddSingleton<Bank>();
 
 // --- JWT auth ---
 // Login hands out a signed token; every controller endpoint requires one
@@ -58,9 +54,12 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-builder.Services.AddSingleton<ICustomerRepository, CustomerRepository>();
+// Repositories and services are stateless, so one shared instance
+// (AddSingleton) serves every request.
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IAccountRepository, AccountRepository>();
 builder.Services.AddSingleton<ITransactionRepository, TransactionRepository>();
+builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<AccountService>();
 
 // Only needed for local dev (Vite on :5173 calling the API on :5167). In AWS the
@@ -87,16 +86,15 @@ builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 var app = builder.Build();
 
-// Seed the in-memory Bank (for Auth) and MongoDB (for Customers/Accounts),
-// then apply any pending data migrations, before handling requests.
+// Before handling requests: apply pending data migrations (which seed demo
+// data into an empty database) and make sure the admin login exists.
 using (var scope = app.Services.CreateScope())
 {
-    var bank = scope.ServiceProvider.GetRequiredService<Bank>();
-    bank.SeedData();
-
     var database = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
-    await MongoSeedData.SeedAsync(database);
     await DataMigrations.RunAsync(database);
+
+    var userService = scope.ServiceProvider.GetRequiredService<UserService>();
+    await userService.EnsureAdminAsync(builder.Configuration["Seed:AdminPassword"]);
 }
 
 // Configure the HTTP request pipeline.

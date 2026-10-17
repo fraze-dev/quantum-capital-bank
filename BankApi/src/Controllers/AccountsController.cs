@@ -1,3 +1,7 @@
+using BankApi.Dtos;
+using BankApi.Models;
+using BankApi.Repositories;
+using BankApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,30 +12,30 @@ namespace BankApi.Controllers;
 public class AccountsController : ControllerBase
 {
     private readonly IAccountRepository _accountRepository;
-    private readonly ICustomerRepository _customerRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ITransactionRepository _transactionRepository;
     private readonly AccountService _accountService;
 
     public AccountsController(
         IAccountRepository accountRepository,
-        ICustomerRepository customerRepository,
+        IUserRepository userRepository,
         ITransactionRepository transactionRepository,
         AccountService accountService)
     {
         _accountRepository = accountRepository;
-        _customerRepository = customerRepository;
+        _userRepository = userRepository;
         _transactionRepository = transactionRepository;
         _accountService = accountService;
     }
 
     // GET /api/v1/accounts
     // GET /api/v1/accounts?minBalance=500
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = Roles.Admin)]
     [HttpGet]
     public async Task<IActionResult> GetAccounts([FromQuery] decimal? minBalance)
     {
         List<AccountDocument> accounts = await _accountRepository.GetAllAsync(minBalance);
-        return Ok(accounts.Select(ToSummary).ToList());
+        return Ok(accounts.Select(AccountSummary.From).ToList());
     }
 
     // GET /api/v1/accounts/customer/{username}
@@ -43,14 +47,13 @@ public class AccountsController : ControllerBase
             return StatusCode(403, "You can only view your own accounts.");
         }
 
-        CustomerDocument customer = await _customerRepository.GetByUsernameAsync(username);
-        if (customer == null)
+        if (!await IsCustomerAsync(username))
         {
             return NotFound($"No customer found with username '{username}'.");
         }
 
         List<AccountDocument> accounts = await _accountRepository.GetByCustomerUsernameAsync(username);
-        return Ok(accounts.Select(ToSummary).ToList());
+        return Ok(accounts.Select(AccountSummary.From).ToList());
     }
 
     // GET /api/v1/accounts/{accountNumber}/transactions?limit=20
@@ -91,8 +94,7 @@ public class AccountsController : ControllerBase
             return StatusCode(403, "You can only open accounts for yourself.");
         }
 
-        CustomerDocument customer = await _customerRepository.GetByUsernameAsync(request.OwnerUsername);
-        if (customer == null)
+        if (!await IsCustomerAsync(request.OwnerUsername))
         {
             return NotFound($"No customer found with username '{request.OwnerUsername}'.");
         }
@@ -112,7 +114,7 @@ public class AccountsController : ControllerBase
         string accountType = prefix == "SAV" ? "Savings" : "Checking";
         AccountDocument account = await _accountService.OpenAccountAsync(request.OwnerUsername, accountType, prefix);
 
-        return CreatedAtAction(nameof(GetAccountsByCustomer), new { username = request.OwnerUsername }, ToSummary(account));
+        return CreatedAtAction(nameof(GetAccountsByCustomer), new { username = request.OwnerUsername }, AccountSummary.From(account));
     }
 
     // POST /api/v1/accounts/{accountNumber}/deposit
@@ -132,7 +134,7 @@ public class AccountsController : ControllerBase
         }
 
         AccountDocument updated = await _accountService.DepositAsync(account, request.Amount, User.Username());
-        return Ok(ToSummary(updated));
+        return Ok(AccountSummary.From(updated));
     }
 
     // POST /api/v1/accounts/{accountNumber}/withdraw
@@ -157,7 +159,7 @@ public class AccountsController : ControllerBase
             return BadRequest(InsufficientFundsMessage(account));
         }
 
-        return Ok(ToSummary(updated));
+        return Ok(AccountSummary.From(updated));
     }
 
     // POST /api/v1/accounts/transfer
@@ -205,7 +207,7 @@ public class AccountsController : ControllerBase
             return BadRequest(InsufficientFundsMessage(fromAccount));
         }
 
-        return Ok(new TransferResponse { From = ToSummary(result.From), To = ToSummary(result.To) });
+        return Ok(new TransferResponse { From = AccountSummary.From(result.From), To = AccountSummary.From(result.To) });
     }
 
     private async Task<(AccountDocument Account, IActionResult Error)> LoadOwnedAccount(string accountNumber)
@@ -246,46 +248,9 @@ public class AccountsController : ControllerBase
             : "Insufficient funds. Savings accounts do not allow overdraft.";
     }
 
-    private static AccountSummary ToSummary(AccountDocument account)
+    private async Task<bool> IsCustomerAsync(string username)
     {
-        return new AccountSummary
-        {
-            AccountNumber = account.AccountNumber,
-            OwnerUsername = account.OwnerUsername,
-            AccountType = account.AccountType,
-            Balance = account.Balance
-        };
+        UserDocument user = await _userRepository.GetByUsernameAsync(username);
+        return user?.Role == Roles.Customer;
     }
-}
-
-public class AccountSummary
-{
-    public string AccountNumber { get; set; }
-    public string OwnerUsername { get; set; }
-    public string AccountType { get; set; }
-    public decimal Balance { get; set; }
-}
-
-public class CreateAccountRequest
-{
-    public string OwnerUsername { get; set; }
-    public string AccountType { get; set; }
-}
-
-public class AmountRequest
-{
-    public decimal Amount { get; set; }
-}
-
-public class TransferRequest
-{
-    public string FromAccountNumber { get; set; }
-    public string ToAccountNumber { get; set; }
-    public decimal Amount { get; set; }
-}
-
-public class TransferResponse
-{
-    public AccountSummary From { get; set; }
-    public AccountSummary To { get; set; }
 }

@@ -1,6 +1,6 @@
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace BankApi;
+namespace BankApi.Models;
 
 // One ledger entry. Entries are only ever inserted, never updated or deleted,
 // so an account's history always adds up to its balance.

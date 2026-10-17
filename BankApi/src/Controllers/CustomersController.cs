@@ -1,3 +1,7 @@
+using BankApi.Dtos;
+using BankApi.Models;
+using BankApi.Repositories;
+using BankApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,25 +11,32 @@ namespace BankApi.Controllers;
 [Route("api/v1/[controller]")]
 public class CustomersController : ControllerBase
 {
-    private readonly ICustomerRepository _customerRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly IAccountRepository _accountRepository;
+    private readonly UserService _userService;
 
-    public CustomersController(ICustomerRepository customerRepository)
+    public CustomersController(IUserRepository userRepository, IAccountRepository accountRepository, UserService userService)
     {
-        _customerRepository = customerRepository;
+        _userRepository = userRepository;
+        _accountRepository = accountRepository;
+        _userService = userService;
     }
 
     // GET /api/v1/customers
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = Roles.Admin)]
     [HttpGet]
     public async Task<IActionResult> GetCustomers()
     {
-        List<CustomerDocument> customers = await _customerRepository.GetAllAsync();
+        List<UserDocument> customers = await _userRepository.GetByRoleAsync(Roles.Customer);
+        ILookup<string, string> accountNumbersByOwner = (await _accountRepository.GetAllAsync(null))
+            .OrderBy(a => a.AccountNumber)
+            .ToLookup(a => a.OwnerUsername, a => a.AccountNumber);
 
         List<CustomerSummary> result = customers
             .Select(c => new CustomerSummary
             {
                 Username = c.Username,
-                AccountNumbers = c.AccountNumbers
+                AccountNumbers = accountNumbersByOwner[c.Username].ToList()
             })
             .ToList();
 
@@ -41,20 +52,18 @@ public class CustomersController : ControllerBase
             return StatusCode(403, "You can only view your own customer record.");
         }
 
-        CustomerDocument customer = await _customerRepository.GetByUsernameAsync(username);
-
-        if (customer == null)
+        UserDocument customer = await _userRepository.GetByUsernameAsync(username);
+        if (customer == null || customer.Role != Roles.Customer)
         {
             return NotFound($"No customer found with username '{username}'.");
         }
 
-        var summary = new CustomerSummary
+        List<AccountDocument> accounts = await _accountRepository.GetByCustomerUsernameAsync(username);
+        return Ok(new CustomerSummary
         {
             Username = customer.Username,
-            AccountNumbers = customer.AccountNumbers
-        };
-
-        return Ok(summary);
+            AccountNumbers = accounts.Select(a => a.AccountNumber).Order().ToList()
+        });
     }
 
     // POST /api/v1/customers (registration, so no token yet)
@@ -67,39 +76,13 @@ public class CustomersController : ControllerBase
             return BadRequest("Username and password are required.");
         }
 
-        CustomerDocument existing = await _customerRepository.GetByUsernameAsync(request.Username);
-        if (existing != null)
+        UserDocument customer = await _userService.RegisterCustomerAsync(request.Username, request.Password);
+        if (customer == null)
         {
             return Conflict($"A user with username '{request.Username}' already exists.");
         }
 
-        var customer = new CustomerDocument
-        {
-            Username = request.Username,
-            Password = PasswordUtil.Hash(request.Password),
-            AccountNumbers = new List<string>()
-        };
-
-        await _customerRepository.CreateAsync(customer);
-
-        var summary = new CustomerSummary
-        {
-            Username = customer.Username,
-            AccountNumbers = customer.AccountNumbers
-        };
-
+        var summary = new CustomerSummary { Username = customer.Username, AccountNumbers = new List<string>() };
         return CreatedAtAction(nameof(GetCustomerByUsername), new { username = customer.Username }, summary);
     }
-}
-
-public class CustomerSummary
-{
-    public string Username { get; set; }
-    public List<string> AccountNumbers { get; set; }
-}
-
-public class CreateCustomerRequest
-{
-    public string Username { get; set; }
-    public string Password { get; set; }
 }
