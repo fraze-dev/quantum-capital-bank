@@ -1,7 +1,6 @@
 using Amazon.Lambda.AspNetCoreServer.Hosting;
 using BankApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 
@@ -19,9 +18,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<Bank>();
 
 // --- JWT auth ---
-// Login hands out a signed token; every other endpoint requires one unless it
-// opts out with [AllowAnonymous]. Claims are kept under their short JWT names
-// ("name", "role") so User.Identity.Name and [Authorize(Roles = ...)] read them directly.
+// Login hands out a signed token; every controller endpoint requires one
+// (see MapControllers below) unless it opts out with [AllowAnonymous]. Claims
+// are kept under their short JWT names ("name", "role") so User.Identity.Name
+// and [Authorize(Roles = ...)] read them directly.
 SymmetricSecurityKey jwtSigningKey = TokenService.LoadSigningKey(builder.Configuration);
 builder.Services.AddSingleton(new TokenService(jwtSigningKey));
 
@@ -41,8 +41,7 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorizationBuilder()
-    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+builder.Services.AddAuthorization();
 
 // --- MongoDB wiring ---
 
@@ -103,7 +102,7 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi().AllowAnonymous();
+    app.MapOpenApi();
 }
 
 // API Gateway already terminates HTTPS before the request ever reaches
@@ -121,6 +120,14 @@ app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+// Requiring auth on the controllers (rather than as a global fallback policy)
+// keeps unknown paths returning 404 instead of 401.
+app.MapControllers().RequireAuthorization();
+
+// Public status check. /api/v1/health is the one CloudFront forwards; / is a
+// convenience for local runs.
+IResult Health() => Results.Ok(new { service = "Quantum Capital API", status = "ok" });
+app.MapGet("/api/v1/health", Health);
+app.MapGet("/", Health);
 
 app.Run();
