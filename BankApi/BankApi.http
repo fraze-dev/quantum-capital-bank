@@ -1,5 +1,9 @@
 @BankApi_HostAddress = http://localhost:5167
+# To hit the deployed app instead, swap in the CloudFront URL:
+# @BankApi_HostAddress = https://d168fzbhwdwvz0.cloudfront.net
 
+### Log in as a customer (run this first; later requests reuse its token)
+# @name customerLogin
 POST {{BankApi_HostAddress}}/api/v1/auth/login
 Content-Type: application/json
 
@@ -8,8 +12,17 @@ Content-Type: application/json
   "password": "pass123"
 }
 
-###
+### Log in as admin
+# @name adminLogin
+POST {{BankApi_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
 
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### Wrong password -> 401
 POST {{BankApi_HostAddress}}/api/v1/auth/login
 Content-Type: application/json
 
@@ -18,20 +31,7 @@ Content-Type: application/json
   "password": "wrongpassword"
 }
 
-###
-
-GET {{BankApi_HostAddress}}/api/v1/customers
-
-###
-
-GET {{BankApi_HostAddress}}/api/v1/customers/jsmith
-
-###
-
-GET {{BankApi_HostAddress}}/api/v1/customers/nobody
-
-###
-
+### Register a new customer (no token needed)
 POST {{BankApi_HostAddress}}/api/v1/customers
 Content-Type: application/json
 
@@ -40,68 +40,74 @@ Content-Type: application/json
   "password": "hunter2"
 }
 
-###
-
-POST {{BankApi_HostAddress}}/api/v1/customers
-Content-Type: application/json
-
-{
-  "username": "jsmith",
-  "password": "whatever"
-}
-
-###
-
-GET {{BankApi_HostAddress}}/api/v1/accounts
-
-###
-
-GET {{BankApi_HostAddress}}/api/v1/accounts?minBalance=600
-
-###
-
+### No token -> 401
 GET {{BankApi_HostAddress}}/api/v1/accounts/customer/jsmith
 
-###
 
-GET {{BankApi_HostAddress}}/api/v1/accounts/customer/ghost
+# --- As the customer -------------------------------------------------------
 
-###
+### My accounts
+GET {{BankApi_HostAddress}}/api/v1/accounts/customer/jsmith
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 
-###
+### Someone else's accounts -> 403
+GET {{BankApi_HostAddress}}/api/v1/accounts/customer/agarcia
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 
-POST {{BankApi_HostAddress}}/api/v1/customers
+### Recent activity on one account
+GET {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/transactions?limit=10
+Authorization: Bearer {{customerLogin.response.body.$.token}}
+
+### Deposit
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/deposit
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "username": "hashtest1",
-  "password": "testpass1"
+  "amount": 25
 }
 
-###
-
-POST {{BankApi_HostAddress}}/api/v1/auth/login
+### Withdraw
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/withdraw
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "username": "hashtest1",
-  "password": "testpass1"
+  "amount": 25
 }
 
-POST {https://wkrrnjur16.execute-api.us-east-1.amazonaws.com/api/v1/customers}
+### Transfer between my accounts
+POST {{BankApi_HostAddress}}/api/v1/accounts/transfer
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "username": "hashtest2",
-  "password": "testpass2"
+  "fromAccountNumber": "CHK-1002",
+  "toAccountNumber": "SAV-1001",
+  "amount": 10
 }
 
-###
-
-POST {https://wkrrnjur16.execute-api.us-east-1.amazonaws.com/api/v1/customers}
+### Open a new account
+POST {{BankApi_HostAddress}}/api/v1/accounts
+Authorization: Bearer {{customerLogin.response.body.$.token}}
 Content-Type: application/json
 
 {
-  "username": "hashtest2",
-  "password": "testpass2"
+  "ownerUsername": "jsmith",
+  "accountType": "Savings"
 }
+
+
+# --- As admin ----------------------------------------------------------------
+
+### All customers
+GET {{BankApi_HostAddress}}/api/v1/customers
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### All accounts with balance >= 500
+GET {{BankApi_HostAddress}}/api/v1/accounts?minBalance=500
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### All transactions for one customer (filters: username, accountNumber, from, to, limit)
+GET {{BankApi_HostAddress}}/api/v1/transactions?username=jsmith&limit=20
+Authorization: Bearer {{adminLogin.response.body.$.token}}
