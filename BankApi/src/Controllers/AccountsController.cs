@@ -7,15 +7,21 @@ namespace BankApi.Controllers;
 [Route("api/v1/[controller]")]
 public class AccountsController : ControllerBase
 {
-    private const decimal CheckingOverdraftLimit = 100m;
-
     private readonly IAccountRepository _accountRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly ITransactionRepository _transactionRepository;
+    private readonly AccountService _accountService;
 
-    public AccountsController(IAccountRepository accountRepository, ICustomerRepository customerRepository)
+    public AccountsController(
+        IAccountRepository accountRepository,
+        ICustomerRepository customerRepository,
+        ITransactionRepository transactionRepository,
+        AccountService accountService)
     {
         _accountRepository = accountRepository;
         _customerRepository = customerRepository;
+        _transactionRepository = transactionRepository;
+        _accountService = accountService;
     }
 
     // GET /api/v1/accounts
@@ -45,6 +51,30 @@ public class AccountsController : ControllerBase
 
         List<AccountDocument> accounts = await _accountRepository.GetByCustomerUsernameAsync(username);
         return Ok(accounts.Select(ToSummary).ToList());
+    }
+
+    // GET /api/v1/accounts/{accountNumber}/transactions?limit=20
+    [HttpGet("{accountNumber}/transactions")]
+    public async Task<IActionResult> GetAccountTransactions(string accountNumber, [FromQuery] int? limit)
+    {
+        AccountDocument account = await _accountRepository.GetByAccountNumberAsync(accountNumber);
+        if (account == null)
+        {
+            return NotFound($"No account found with number '{accountNumber}'.");
+        }
+
+        if (!User.IsSelfOrAdmin(account.OwnerUsername))
+        {
+            return StatusCode(403, "You do not own this account.");
+        }
+
+        List<TransactionDocument> transactions = await _transactionRepository.FindAsync(new TransactionQuery
+        {
+            AccountNumber = accountNumber,
+            Limit = TransactionSummary.ClampLimit(limit)
+        });
+
+        return Ok(transactions.Select(TransactionSummary.From).ToList());
     }
 
     // POST /api/v1/accounts
@@ -80,18 +110,7 @@ public class AccountsController : ControllerBase
         }
 
         string accountType = prefix == "SAV" ? "Savings" : "Checking";
-        string accountNumber = await _accountRepository.GetNextAccountNumberAsync(prefix);
-
-        var account = new AccountDocument
-        {
-            AccountNumber = accountNumber,
-            OwnerUsername = request.OwnerUsername,
-            AccountType = accountType,
-            Balance = 0m
-        };
-
-        await _accountRepository.CreateAsync(account);
-        await _customerRepository.AddAccountNumberAsync(request.OwnerUsername, accountNumber);
+        AccountDocument account = await _accountService.OpenAccountAsync(request.OwnerUsername, accountType, prefix);
 
         return CreatedAtAction(nameof(GetAccountsByCustomer), new { username = request.OwnerUsername }, ToSummary(account));
     }
@@ -100,59 +119,45 @@ public class AccountsController : ControllerBase
     [HttpPost("{accountNumber}/deposit")]
     public async Task<IActionResult> Deposit(string accountNumber, [FromBody] AmountRequest request)
     {
-        if (request == null)
+        string amountError = ValidateAmount(request?.Amount, "Deposit");
+        if (amountError != null)
         {
-            return BadRequest("Amount is required.");
+            return BadRequest(amountError);
         }
 
-        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, User.Username());
+        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber);
         if (error != null)
         {
             return error;
         }
 
-        if (request.Amount <= 0)
-        {
-            return BadRequest("Deposit amount must be positive.");
-        }
-
-        decimal newBalance = account.Balance + request.Amount;
-        await _accountRepository.UpdateBalanceAsync(accountNumber, newBalance);
-        account.Balance = newBalance;
-
-        return Ok(ToSummary(account));
+        AccountDocument updated = await _accountService.DepositAsync(account, request.Amount, User.Username());
+        return Ok(ToSummary(updated));
     }
 
     // POST /api/v1/accounts/{accountNumber}/withdraw
     [HttpPost("{accountNumber}/withdraw")]
     public async Task<IActionResult> Withdraw(string accountNumber, [FromBody] AmountRequest request)
     {
-        if (request == null)
+        string amountError = ValidateAmount(request?.Amount, "Withdrawal");
+        if (amountError != null)
         {
-            return BadRequest("Amount is required.");
+            return BadRequest(amountError);
         }
 
-        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, User.Username());
+        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber);
         if (error != null)
         {
             return error;
         }
 
-        if (request.Amount <= 0)
-        {
-            return BadRequest("Withdrawal amount must be positive.");
-        }
-
-        decimal? newBalance = ComputeBalanceAfterWithdrawal(account, request.Amount);
-        if (newBalance == null)
+        AccountDocument updated = await _accountService.WithdrawAsync(account, request.Amount, User.Username());
+        if (updated == null)
         {
             return BadRequest(InsufficientFundsMessage(account));
         }
 
-        await _accountRepository.UpdateBalanceAsync(accountNumber, newBalance.Value);
-        account.Balance = newBalance.Value;
-
-        return Ok(ToSummary(account));
+        return Ok(ToSummary(updated));
     }
 
     // POST /api/v1/accounts/transfer
@@ -170,9 +175,10 @@ public class AccountsController : ControllerBase
             return BadRequest("Cannot transfer to the same account.");
         }
 
-        if (request.Amount <= 0)
+        string amountError = ValidateAmount(request.Amount, "Transfer");
+        if (amountError != null)
         {
-            return BadRequest("Transfer amount must be positive.");
+            return BadRequest(amountError);
         }
 
         AccountDocument fromAccount = await _accountRepository.GetByAccountNumberAsync(request.FromAccountNumber);
@@ -193,24 +199,16 @@ public class AccountsController : ControllerBase
             return StatusCode(403, "You do not own one or both of these accounts.");
         }
 
-        decimal? newFromBalance = ComputeBalanceAfterWithdrawal(fromAccount, request.Amount);
-        if (newFromBalance == null)
+        TransferResult result = await _accountService.TransferAsync(fromAccount, toAccount, request.Amount, username);
+        if (result == null)
         {
             return BadRequest(InsufficientFundsMessage(fromAccount));
         }
 
-        decimal newToBalance = toAccount.Balance + request.Amount;
-
-        await _accountRepository.UpdateBalanceAsync(fromAccount.AccountNumber, newFromBalance.Value);
-        await _accountRepository.UpdateBalanceAsync(toAccount.AccountNumber, newToBalance);
-
-        fromAccount.Balance = newFromBalance.Value;
-        toAccount.Balance = newToBalance;
-
-        return Ok(new TransferResponse { From = ToSummary(fromAccount), To = ToSummary(toAccount) });
+        return Ok(new TransferResponse { From = ToSummary(result.From), To = ToSummary(result.To) });
     }
 
-    private async Task<(AccountDocument Account, IActionResult Error)> LoadOwnedAccount(string accountNumber, string username)
+    private async Task<(AccountDocument Account, IActionResult Error)> LoadOwnedAccount(string accountNumber)
     {
         AccountDocument account = await _accountRepository.GetByAccountNumberAsync(accountNumber);
         if (account == null)
@@ -218,7 +216,7 @@ public class AccountsController : ControllerBase
             return (null, NotFound($"No account found with number '{accountNumber}'."));
         }
 
-        if (account.OwnerUsername != username)
+        if (account.OwnerUsername != User.Username())
         {
             return (null, StatusCode(403, "You do not own this account."));
         }
@@ -226,22 +224,25 @@ public class AccountsController : ControllerBase
         return (account, null);
     }
 
-    private static decimal? ComputeBalanceAfterWithdrawal(AccountDocument account, decimal amount)
+    private static string ValidateAmount(decimal? amount, string action)
     {
-        decimal overdraftLimit = account.AccountType == "Checking" ? CheckingOverdraftLimit : 0m;
-
-        if (amount > account.Balance + overdraftLimit)
+        if (amount == null || amount <= 0)
         {
-            return null;
+            return $"{action} amount must be positive.";
         }
 
-        return account.Balance - amount;
+        if (decimal.Round(amount.Value, 2) != amount.Value)
+        {
+            return "Amounts can have at most two decimal places.";
+        }
+
+        return null;
     }
 
     private static string InsufficientFundsMessage(AccountDocument account)
     {
         return account.AccountType == "Checking"
-            ? $"Insufficient funds. Overdraft limit is {CheckingOverdraftLimit:C}."
+            ? $"Insufficient funds. Overdraft limit is {AccountService.CheckingOverdraftLimit:C}."
             : "Insufficient funds. Savings accounts do not allow overdraft.";
     }
 

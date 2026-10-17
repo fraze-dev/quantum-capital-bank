@@ -26,9 +26,10 @@ public class CustomerRepository : ICustomerRepository
         await _customers.InsertOneAsync(customer);
     }
 
-    public async Task AddAccountNumberAsync(string username, string accountNumber)
+    public async Task AddAccountNumberAsync(IClientSessionHandle session, string username, string accountNumber)
     {
         await _customers.UpdateOneAsync(
+            session,
             c => c.Username == username,
             Builders<CustomerDocument>.Update.Push(c => c.AccountNumbers, accountNumber));
     }

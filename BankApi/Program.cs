@@ -61,6 +61,8 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 
 builder.Services.AddSingleton<ICustomerRepository, CustomerRepository>();
 builder.Services.AddSingleton<IAccountRepository, AccountRepository>();
+builder.Services.AddSingleton<ITransactionRepository, TransactionRepository>();
+builder.Services.AddSingleton<AccountService>();
 
 // Only needed for local dev (Vite on :5173 calling the API on :5167). In AWS the
 // site and API share one CloudFront origin, so requests are same-origin.
@@ -86,8 +88,8 @@ builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 var app = builder.Build();
 
-// Seed the in-memory Bank (for Auth) and MongoDB (for Customers/Accounts)
-// once, right after the app is built and before it starts handling requests.
+// Seed the in-memory Bank (for Auth) and MongoDB (for Customers/Accounts),
+// then apply any pending data migrations, before handling requests.
 using (var scope = app.Services.CreateScope())
 {
     var bank = scope.ServiceProvider.GetRequiredService<Bank>();
@@ -95,6 +97,7 @@ using (var scope = app.Services.CreateScope())
 
     var database = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
     await MongoSeedData.SeedAsync(database);
+    await DataMigrations.RunAsync(database);
 }
 
 // Configure the HTTP request pipeline.
