@@ -20,6 +20,22 @@ public static class PasswordUtil
         return Hasher.HashPassword(null!, password);
     }
 
+    // Identity hashes are base64 and start with a format-marker byte (0x00 for
+    // v2, 0x01 for v3); a v2 hash, the shorter one, is 49 bytes. Anything else
+    // is a legacy plaintext value saved before hashing was added.
+    public static bool LooksHashed(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        var buffer = new byte[value.Length];
+        return Convert.TryFromBase64String(value, buffer, out int length)
+            && length >= 49
+            && (buffer[0] == 0x00 || buffer[0] == 0x01);
+    }
+
     public static bool Verify(string hashedPassword, string providedPassword)
     {
         if (string.IsNullOrEmpty(hashedPassword) || providedPassword == null)

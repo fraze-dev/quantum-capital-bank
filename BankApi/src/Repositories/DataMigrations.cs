@@ -1,4 +1,5 @@
 using BankApi.Models;
+using BankApi.Services;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
@@ -19,7 +20,8 @@ public static class DataMigrations
         ("001-transaction-indexes", TransactionRepository.EnsureIndexesAsync),
         ("002-opening-balances", AddOpeningBalancesAsync),
         ("003-account-number-counters", AccountRepository.SyncAccountNumberCountersAsync),
-        ("004-users-from-customers", CopyCustomersToUsersAsync)
+        ("004-users-from-customers", CopyCustomersToUsersAsync),
+        ("005-hash-legacy-passwords", HashLegacyPasswordsAsync)
     };
 
     public static async Task RunAsync(IMongoDatabase database)
@@ -96,6 +98,38 @@ public static class DataMigrations
                 Role = Roles.Customer,
                 CreatedAt = now
             }));
+        }
+    }
+
+    // Customers registered before password hashing was added still had their
+    // passwords stored as plain text (and so couldn't log in once login began
+    // requiring a hash). Replace each with its hash, in both the current
+    // "users" collection and the legacy "customers" one, so no plaintext
+    // password remains anywhere. The passwords themselves don't change.
+    private static async Task HashLegacyPasswordsAsync(IMongoDatabase database)
+    {
+        foreach ((string collectionName, string field) in new[]
+        {
+            (UserRepository.CollectionName, nameof(UserDocument.PasswordHash)),
+            ("customers", "Password")
+        })
+        {
+            var collection = database.GetCollection<BsonDocument>(collectionName);
+            List<BsonDocument> docs = await collection.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
+
+            foreach (BsonDocument doc in docs)
+            {
+                BsonValue stored = doc.GetValue(field, BsonNull.Value);
+                if (!stored.IsString || PasswordUtil.LooksHashed(stored.AsString))
+                {
+                    continue;
+                }
+
+                // Match on the old value too, so a concurrent run can't hash twice.
+                await collection.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.Eq("_id", doc["_id"]) & Builders<BsonDocument>.Filter.Eq(field, stored),
+                    Builders<BsonDocument>.Update.Set(field, PasswordUtil.Hash(stored.AsString)));
+            }
         }
     }
 
