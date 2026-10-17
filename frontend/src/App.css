@@ -506,7 +506,9 @@ section {
 
 /* Transaction activity */
 
-.account-card .activity-toggle {
+/* "button.activity-toggle" (not just ".activity-toggle") so these win over the
+   generic ".account-card button[type='button']" outline style above. */
+.account-card button.activity-toggle {
   align-self: flex-start;
   padding: 0;
   border: none;
@@ -515,7 +517,7 @@ section {
   font-size: 13px;
 }
 
-.account-card .activity-toggle:hover {
+.account-card button.activity-toggle:hover {
   background: transparent;
   text-decoration: underline;
 }
