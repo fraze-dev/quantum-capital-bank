@@ -15,19 +15,35 @@ public class AuditController : ControllerBase
     private const int MaxLimit = 500;
 
     private readonly IAuditRepository _auditRepository;
+    private readonly IAccountRepository _accountRepository;
 
-    public AuditController(IAuditRepository auditRepository)
+    public AuditController(IAuditRepository auditRepository, IAccountRepository accountRepository)
     {
         _auditRepository = auditRepository;
+        _accountRepository = accountRepository;
     }
 
-    // GET /api/v1/audit?targetId=CHK-1001&limit=50
-    // Admin actions, newest first. targetId (account number or username) is optional.
+    // GET /api/v1/audit?limit=50                   everything
+    // GET /api/v1/audit?targetId=CHK-1001          one account (or one username)
+    // GET /api/v1/audit?username=jsmith            a customer and all of their accounts
+    // Admin actions, newest first.
     [HttpGet]
-    public async Task<IActionResult> GetAuditLog([FromQuery] string targetId, [FromQuery] int? limit)
+    public async Task<IActionResult> GetAuditLog(
+        [FromQuery] string targetId, [FromQuery] string username, [FromQuery] int? limit)
     {
+        List<string> targetIds = null;
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            List<AccountDocument> accounts = await _accountRepository.GetByCustomerUsernameAsync(username);
+            targetIds = accounts.Select(a => a.AccountNumber).Append(username).ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(targetId))
+        {
+            targetIds = new List<string> { targetId };
+        }
+
         List<AuditEntryDocument> entries = await _auditRepository.FindAsync(
-            targetId, Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit));
+            targetIds, Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit));
 
         return Ok(entries.Select(AuditEntrySummary.From).ToList());
     }

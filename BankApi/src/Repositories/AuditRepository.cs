@@ -19,11 +19,11 @@ public class AuditRepository : IAuditRepository
         await _entries.InsertOneAsync(session, entry);
     }
 
-    public async Task<List<AuditEntryDocument>> FindAsync(string targetId, int limit)
+    public async Task<List<AuditEntryDocument>> FindAsync(IReadOnlyCollection<string> targetIds, int limit)
     {
-        FilterDefinition<AuditEntryDocument> filter = string.IsNullOrWhiteSpace(targetId)
+        FilterDefinition<AuditEntryDocument> filter = targetIds == null
             ? FilterDefinition<AuditEntryDocument>.Empty
-            : Builders<AuditEntryDocument>.Filter.Eq(e => e.TargetId, targetId);
+            : Builders<AuditEntryDocument>.Filter.In(e => e.TargetId, targetIds);
 
         return await _entries.Find(filter)
             .SortByDescending(e => e.Timestamp)
