@@ -1,0 +1,114 @@
+import { useState, type FormEvent } from 'react'
+import { deposit, withdraw } from '../api/accounts'
+import { ApiError } from '../api/client'
+import type { AccountSummary } from '../api/types'
+import { AccountActivity } from './AccountActivity'
+import { StatusBadge } from './StatusBadge'
+
+const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+
+type Mode = 'idle' | 'deposit' | 'withdraw'
+
+export function AccountCard({
+  account,
+  onUpdated,
+}: {
+  account: AccountSummary
+  onUpdated: (updated: AccountSummary) => void
+}) {
+  const [mode, setMode] = useState<Mode>('idle')
+  const [amountInput, setAmountInput] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [showActivity, setShowActivity] = useState(false)
+
+  const badgeClass = account.accountType.toLowerCase().includes('check') ? 'checking' : ''
+
+  function startMode(next: Mode) {
+    setMode(next)
+    setAmountInput('')
+    setError(null)
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const amount = Number(amountInput)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter an amount greater than 0.')
+      return
+    }
+
+    setSubmitting(true)
+    setError(null)
+    try {
+      const action = mode === 'deposit' ? deposit : withdraw
+      const updated = await action(account.accountNumber, { amount })
+      onUpdated(updated)
+      startMode('idle')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to reach the server.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="account-card">
+      <div className="account-card-top">
+        <span className={`account-type-badge ${badgeClass}`}>{account.accountType}</span>
+        <span className="account-number">{account.accountNumber}</span>
+      </div>
+      <span className="account-balance">{currencyFormatter.format(account.balance)}</span>
+
+      {account.status !== 'Active' ? (
+        <p className={`account-status-note ${account.status.toLowerCase()}`}>
+          <StatusBadge status={account.status} />
+          {account.status === 'Frozen'
+            ? 'Deposits, withdrawals and transfers are paused. Please contact the bank.'
+            : 'This account is closed.'}
+        </p>
+      ) : mode === 'idle' ? (
+        <div className="account-actions">
+          <button type="button" onClick={() => startMode('deposit')}>
+            Deposit
+          </button>
+          <button type="button" onClick={() => startMode('withdraw')}>
+            Withdraw
+          </button>
+        </div>
+      ) : (
+        <form className="inline-form" onSubmit={handleSubmit}>
+          {error && <p className="form-error">{error}</p>}
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="Amount"
+            value={amountInput}
+            onChange={(e) => setAmountInput(e.target.value)}
+            autoFocus
+            required
+          />
+          <div className="account-actions">
+            <button type="submit" disabled={submitting}>
+              {mode === 'deposit' ? 'Confirm deposit' : 'Confirm withdrawal'}
+            </button>
+            <button type="button" onClick={() => startMode('idle')} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <button
+        type="button"
+        className="activity-toggle"
+        onClick={() => setShowActivity((shown) => !shown)}
+        aria-expanded={showActivity}
+      >
+        {showActivity ? 'Hide recent activity' : 'Show recent activity'}
+      </button>
+      {showActivity && <AccountActivity accountNumber={account.accountNumber} balance={account.balance} />}
+    </div>
+  )
+}
