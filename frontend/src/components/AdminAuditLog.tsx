@@ -4,16 +4,17 @@ import { ApiError } from '../api/client'
 import type { AuditEntry } from '../api/types'
 import { describeAuditAction, formatDateTime } from '../format'
 
-// Every admin status change, newest first. reloadKey changes whenever the
-// admin makes a change on this page, so the log refreshes right away.
-export function AdminAuditLog({ reloadKey }: { reloadKey: number }) {
+// Admin status changes, newest first: all of them, or with a username, just
+// those about that customer and their accounts. reloadKey changes whenever
+// the admin makes a change on the page, so the log refreshes right away.
+export function AdminAuditLog({ reloadKey, username }: { reloadKey: number; username?: string }) {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
-    getAuditLog()
+    getAuditLog({ username })
       .then((result) => {
         if (cancelled) return
         setEntries(result)
@@ -26,7 +27,7 @@ export function AdminAuditLog({ reloadKey }: { reloadKey: number }) {
     return () => {
       cancelled = true
     }
-  }, [reloadKey])
+  }, [reloadKey, username])
 
   return (
     <section>

@@ -3,6 +3,7 @@ import { ApiError } from '../api/client'
 import { getTransactions } from '../api/transactions'
 import type { CustomerSummary, TransactionFilters, TransactionSummary } from '../api/types'
 import { describeTransaction, formatCurrency, formatDateTime, formatSignedCurrency } from '../format'
+import { CustomerLink } from './CustomerLink'
 
 const LIMIT = 100
 
@@ -33,9 +34,12 @@ function toFilters(form: FilterForm): TransactionFilters {
   }
 }
 
-export function AdminTransactions({ customers }: { customers: CustomerSummary[] }) {
-  const [form, setForm] = useState<FilterForm>(emptyForm)
-  const [filters, setFilters] = useState<TransactionFilters>(() => toFilters(emptyForm))
+// All transactions with filters. With `customer` set, the list is locked to
+// that customer (no customer picker, no owner column).
+export function AdminTransactions({ customers = [], customer }: { customers?: CustomerSummary[]; customer?: string }) {
+  const initialForm: FilterForm = { ...emptyForm, username: customer ?? '' }
+  const [form, setForm] = useState<FilterForm>(initialForm)
+  const [filters, setFilters] = useState<TransactionFilters>(() => toFilters(initialForm))
   const [transactions, setTransactions] = useState<TransactionSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,22 +71,24 @@ export function AdminTransactions({ customers }: { customers: CustomerSummary[] 
   }
 
   function clearFilters() {
-    setForm(emptyForm)
-    setFilters(toFilters(emptyForm))
+    setForm(initialForm)
+    setFilters(toFilters(initialForm))
   }
 
   return (
     <section>
       <h2>Transactions</h2>
       <form className="filter-form" onSubmit={handleSubmit}>
-        <select aria-label="Customer" value={form.username} onChange={(e) => update('username', e.target.value)}>
-          <option value="">All customers</option>
-          {customers.map((customer) => (
-            <option key={customer.username} value={customer.username}>
-              {customer.username}
-            </option>
-          ))}
-        </select>
+        {!customer && (
+          <select aria-label="Customer" value={form.username} onChange={(e) => update('username', e.target.value)}>
+            <option value="">All customers</option>
+            {customers.map((c) => (
+              <option key={c.username} value={c.username}>
+                {c.username}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           aria-label="Account number"
           placeholder="Account number"
@@ -112,7 +118,7 @@ export function AdminTransactions({ customers }: { customers: CustomerSummary[] 
               <tr>
                 <th>Date</th>
                 <th>Account</th>
-                <th>Owner</th>
+                {!customer && <th>Owner</th>}
                 <th>Description</th>
                 <th className="numeric">Amount</th>
                 <th className="numeric">Balance after</th>
@@ -124,7 +130,11 @@ export function AdminTransactions({ customers }: { customers: CustomerSummary[] 
                 <tr key={transaction.id}>
                   <td>{formatDateTime(transaction.timestamp)}</td>
                   <td className="account-number">{transaction.accountNumber}</td>
-                  <td>{transaction.ownerUsername}</td>
+                  {!customer && (
+                    <td>
+                      <CustomerLink username={transaction.ownerUsername} />
+                    </td>
+                  )}
                   <td>{describeTransaction(transaction)}</td>
                   <td className={`numeric activity-amount ${transaction.amount > 0 ? 'positive' : ''}`}>
                     {formatSignedCurrency(transaction.amount)}

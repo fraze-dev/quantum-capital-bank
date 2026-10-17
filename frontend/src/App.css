@@ -586,6 +586,33 @@ section {
   color: var(--text-h);
 }
 
+/* Customer detail page */
+
+.back-link {
+  align-self: flex-start;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-header button.secondary,
 .reason-prompt button.secondary {
   color: var(--text-h);
   background: transparent;

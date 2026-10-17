@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { CustomerDashboardPage } from './pages/CustomerDashboardPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { CustomerDetailPage } from './pages/CustomerDetailPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { homePathForRole } from './auth/roleRouting'
 import { useAuth } from './auth/useAuth'
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute role="Admin">
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/customers/:username"
+            element={
+              <ProtectedRoute role="Admin">
+                <CustomerDetailPage />
               </ProtectedRoute>
             }
           />

@@ -1,6 +1,8 @@
 import { Fragment, useState } from 'react'
 import { changeCustomerStatus } from '../api/customers'
 import type { CustomerSummary } from '../api/types'
+import { CustomerLink } from './CustomerLink'
+import { customerStatusAction } from './customerStatusAction'
 import { ReasonPrompt } from './ReasonPrompt'
 import { StatusBadge } from './StatusBadge'
 
@@ -31,8 +33,7 @@ export function AdminCustomersTable({
       </thead>
       <tbody>
         {customers.map((customer) => {
-          const nextStatus = customer.status === 'Active' ? 'Disabled' : 'Active'
-          const actionLabel = nextStatus === 'Disabled' ? 'Disable login' : 'Enable login'
+          const { nextStatus, label: actionLabel, confirmLabel } = customerStatusAction(customer.status)
 
           async function confirm(reason: string) {
             const updated = await changeCustomerStatus(customer.username, { status: nextStatus, reason })
@@ -43,7 +44,9 @@ export function AdminCustomersTable({
           return (
             <Fragment key={customer.username}>
               <tr>
-                <td>{customer.username}</td>
+                <td>
+                  <CustomerLink username={customer.username} />
+                </td>
                 <td>{customer.accountNumbers.join(', ') || '—'}</td>
                 <td>
                   <StatusBadge status={customer.status} />
@@ -59,7 +62,7 @@ export function AdminCustomersTable({
                   <td colSpan={COLUMNS}>
                     <ReasonPrompt
                       title={`${actionLabel} for ${customer.username}`}
-                      confirmLabel={nextStatus === 'Disabled' ? 'Disable' : 'Enable'}
+                      confirmLabel={confirmLabel}
                       onConfirm={confirm}
                       onCancel={() => setPending(null)}
                     />

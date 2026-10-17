@@ -2,10 +2,9 @@ import { Fragment, useState } from 'react'
 import { changeAccountStatus } from '../api/accounts'
 import type { AccountStatus, AccountSummary } from '../api/types'
 import { formatCurrency } from '../format'
+import { CustomerLink } from './CustomerLink'
 import { ReasonPrompt } from './ReasonPrompt'
 import { StatusBadge } from './StatusBadge'
-
-const COLUMNS = 6
 
 const ACTION_LABELS: Record<AccountStatus, string> = {
   Frozen: 'Freeze',
@@ -23,10 +22,13 @@ const NEXT_STATUSES: Record<AccountStatus, AccountStatus[]> = {
 export function AdminAccountsTable({
   accounts,
   onChanged,
+  showOwner = true,
 }: {
   accounts: AccountSummary[]
   onChanged: (updated: AccountSummary) => void
+  showOwner?: boolean
 }) {
+  const columns = showOwner ? 6 : 5
   const [pending, setPending] = useState<{ accountNumber: string; status: AccountStatus } | null>(null)
 
   if (accounts.length === 0) {
@@ -45,7 +47,7 @@ export function AdminAccountsTable({
       <thead>
         <tr>
           <th>Account Number</th>
-          <th>Owner</th>
+          {showOwner && <th>Owner</th>}
           <th>Type</th>
           <th className="numeric">Balance</th>
           <th>Status</th>
@@ -57,7 +59,11 @@ export function AdminAccountsTable({
           <Fragment key={account.accountNumber}>
             <tr>
               <td className="account-number">{account.accountNumber}</td>
-              <td>{account.ownerUsername}</td>
+              {showOwner && (
+                <td>
+                  <CustomerLink username={account.ownerUsername} />
+                </td>
+              )}
               <td>{account.accountType}</td>
               <td className="numeric">{formatCurrency(account.balance)}</td>
               <td>
@@ -84,7 +90,7 @@ export function AdminAccountsTable({
             </tr>
             {pending?.accountNumber === account.accountNumber && (
               <tr className="prompt-row">
-                <td colSpan={COLUMNS}>
+                <td colSpan={columns}>
                   <ReasonPrompt
                     title={`${ACTION_LABELS[pending.status]} ${account.accountNumber}`}
                     confirmLabel={ACTION_LABELS[pending.status]}
