@@ -16,7 +16,7 @@ public static class DataMigrations
     {
         // Listed first so a fresh database gets demo data before the steps
         // below; on an existing database it's a no-op.
-        ("000-seed-demo-data", MongoSeedData.SeedAsync),
+        ("000-seed-demo-data", DemoData.SeedIfEmptyAsync),
         ("001-transaction-indexes", TransactionRepository.EnsureIndexesAsync),
         ("002-opening-balances", AddOpeningBalancesAsync),
         ("003-account-number-counters", AccountRepository.SyncAccountNumberCountersAsync),

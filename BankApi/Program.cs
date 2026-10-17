@@ -5,7 +5,20 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 
-var builder = WebApplication.CreateBuilder(args);
+// Maintenance command, run by hand (Lambda never passes arguments):
+//   dotnet run -- reset-demo-data --yes
+// Replaces all customer data with the demo dataset. Add
+// --MongoDb:DatabaseName=BankApiDb to target the live database instead of dev.
+const string ResetDemoDataCommand = "reset-demo-data";
+const string ConfirmFlag = "--yes";
+bool resetDemoData = args.Contains(ResetDemoDataCommand);
+var builder = WebApplication.CreateBuilder(args.Where(a => a is not (ResetDemoDataCommand or ConfirmFlag)).ToArray());
+
+if (resetDemoData)
+{
+    await DemoData.RunResetCommandAsync(builder.Configuration, confirmed: args.Contains(ConfirmFlag));
+    return;
+}
 
 // Add services to the container.
 
