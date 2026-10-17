@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankApi.Controllers;
@@ -19,6 +20,7 @@ public class AccountsController : ControllerBase
 
     // GET /api/v1/accounts
     // GET /api/v1/accounts?minBalance=500
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetAccounts([FromQuery] decimal? minBalance)
     {
@@ -30,6 +32,11 @@ public class AccountsController : ControllerBase
     [HttpGet("customer/{username}")]
     public async Task<IActionResult> GetAccountsByCustomer(string username)
     {
+        if (!User.IsSelfOrAdmin(username))
+        {
+            return StatusCode(403, "You can only view your own accounts.");
+        }
+
         CustomerDocument customer = await _customerRepository.GetByUsernameAsync(username);
         if (customer == null)
         {
@@ -47,6 +54,11 @@ public class AccountsController : ControllerBase
         if (request == null || string.IsNullOrWhiteSpace(request.OwnerUsername) || string.IsNullOrWhiteSpace(request.AccountType))
         {
             return BadRequest("Owner username and account type are required.");
+        }
+
+        if (!User.IsSelfOrAdmin(request.OwnerUsername))
+        {
+            return StatusCode(403, "You can only open accounts for yourself.");
         }
 
         CustomerDocument customer = await _customerRepository.GetByUsernameAsync(request.OwnerUsername);
@@ -88,12 +100,12 @@ public class AccountsController : ControllerBase
     [HttpPost("{accountNumber}/deposit")]
     public async Task<IActionResult> Deposit(string accountNumber, [FromBody] AmountRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.Username))
+        if (request == null)
         {
-            return BadRequest("Username is required.");
+            return BadRequest("Amount is required.");
         }
 
-        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, request.Username);
+        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, User.Username());
         if (error != null)
         {
             return error;
@@ -115,12 +127,12 @@ public class AccountsController : ControllerBase
     [HttpPost("{accountNumber}/withdraw")]
     public async Task<IActionResult> Withdraw(string accountNumber, [FromBody] AmountRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.Username))
+        if (request == null)
         {
-            return BadRequest("Username is required.");
+            return BadRequest("Amount is required.");
         }
 
-        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, request.Username);
+        (AccountDocument account, IActionResult error) = await LoadOwnedAccount(accountNumber, User.Username());
         if (error != null)
         {
             return error;
@@ -147,10 +159,10 @@ public class AccountsController : ControllerBase
     [HttpPost("transfer")]
     public async Task<IActionResult> Transfer([FromBody] TransferRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.Username) ||
+        if (request == null ||
             string.IsNullOrWhiteSpace(request.FromAccountNumber) || string.IsNullOrWhiteSpace(request.ToAccountNumber))
         {
-            return BadRequest("Username, fromAccountNumber, and toAccountNumber are required.");
+            return BadRequest("fromAccountNumber and toAccountNumber are required.");
         }
 
         if (request.FromAccountNumber == request.ToAccountNumber)
@@ -175,7 +187,8 @@ public class AccountsController : ControllerBase
             return NotFound($"No account found with number '{request.ToAccountNumber}'.");
         }
 
-        if (fromAccount.OwnerUsername != request.Username || toAccount.OwnerUsername != request.Username)
+        string username = User.Username();
+        if (fromAccount.OwnerUsername != username || toAccount.OwnerUsername != username)
         {
             return StatusCode(403, "You do not own one or both of these accounts.");
         }
@@ -260,13 +273,11 @@ public class CreateAccountRequest
 
 public class AmountRequest
 {
-    public string Username { get; set; }
     public decimal Amount { get; set; }
 }
 
 public class TransferRequest
 {
-    public string Username { get; set; }
     public string FromAccountNumber { get; set; }
     public string ToAccountNumber { get; set; }
     public decimal Amount { get; set; }

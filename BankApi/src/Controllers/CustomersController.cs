@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankApi.Controllers;
@@ -13,6 +14,8 @@ public class CustomersController : ControllerBase
         _customerRepository = customerRepository;
     }
 
+    // GET /api/v1/customers
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetCustomers()
     {
@@ -33,6 +36,11 @@ public class CustomersController : ControllerBase
     [HttpGet("{username}")]
     public async Task<IActionResult> GetCustomerByUsername(string username)
     {
+        if (!User.IsSelfOrAdmin(username))
+        {
+            return StatusCode(403, "You can only view your own customer record.");
+        }
+
         CustomerDocument customer = await _customerRepository.GetByUsernameAsync(username);
 
         if (customer == null)
@@ -49,7 +57,8 @@ public class CustomersController : ControllerBase
         return Ok(summary);
     }
 
-    // POST /api/v1/customers
+    // POST /api/v1/customers (registration, so no token yet)
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerRequest request)
     {

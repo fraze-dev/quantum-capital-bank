@@ -1,5 +1,8 @@
 using Amazon.Lambda.AspNetCoreServer.Hosting;
 using BankApi;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +17,32 @@ builder.Services.AddOpenApi();
 // it once and reuses that same instance for every request.
 
 builder.Services.AddSingleton<Bank>();
+
+// --- JWT auth ---
+// Login hands out a signed token; every other endpoint requires one unless it
+// opts out with [AllowAnonymous]. Claims are kept under their short JWT names
+// ("name", "role") so User.Identity.Name and [Authorize(Roles = ...)] read them directly.
+SymmetricSecurityKey jwtSigningKey = TokenService.LoadSigningKey(builder.Configuration);
+builder.Services.AddSingleton(new TokenService(jwtSigningKey));
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = TokenService.Issuer,
+            ValidAudience = TokenService.Audience,
+            IssuerSigningKey = jwtSigningKey,
+            NameClaimType = TokenService.NameClaim,
+            RoleClaimType = TokenService.RoleClaim,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 // --- MongoDB wiring ---
 
@@ -71,7 +100,7 @@ using (var scope = app.Services.CreateScope())
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
 // API Gateway already terminates HTTPS before the request ever reaches
@@ -86,6 +115,7 @@ if (!isRunningInLambda)
 
 app.UseCors(FrontendCorsPolicy);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

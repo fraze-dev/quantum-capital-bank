@@ -11,20 +11,22 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 $stackName = 'bankapp'
 
-# Reuse the connection string from dotnet user-secrets so it never lives in a repo file.
-$secretPrefix = 'MongoDb:ConnectionString = '
-$secretLine = dotnet user-secrets list --project (Join-Path $PSScriptRoot 'BankApi') |
-    Where-Object { $_.StartsWith($secretPrefix) }
-if (-not $secretLine) {
-    throw 'MongoDb:ConnectionString is not set in dotnet user-secrets for BankApi.'
+# Reuse secrets from dotnet user-secrets so they never live in a repo file.
+$secrets = dotnet user-secrets list --project (Join-Path $PSScriptRoot 'BankApi')
+function Get-Secret([string]$name) {
+    $prefix = "$name = "
+    $line = $secrets | Where-Object { $_.StartsWith($prefix) }
+    if (-not $line) { throw "$name is not set in dotnet user-secrets for BankApi." }
+    $line.Substring($prefix.Length)
 }
-$connectionString = $secretLine.Substring($secretPrefix.Length)
+$connectionString = Get-Secret 'MongoDb:ConnectionString'
+$jwtSigningKey = Get-Secret 'Jwt:SigningKey'
 
 Write-Host '==> Building and deploying API' -ForegroundColor Cyan
 Push-Location $PSScriptRoot
 try {
     sam build
-    sam deploy --parameter-overrides "MongoConnectionString=`"$connectionString`""
+    sam deploy --parameter-overrides "MongoConnectionString=`"$connectionString`"" "JwtSigningKey=`"$jwtSigningKey`""
 }
 finally {
     Pop-Location

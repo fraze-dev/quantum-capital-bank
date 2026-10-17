@@ -13,6 +13,10 @@ Parameters:
   MongoDatabaseName:
     Type: String
     Default: BankApiDb
+  JwtSigningKey:
+    Type: String
+    NoEcho: true
+    Description: Secret used to sign login tokens. Passed in by deploy.ps1 from dotnet user-secrets.
 
 Resources:
   # --- API ---------------------------------------------------------------
@@ -33,6 +37,7 @@ Resources:
         Variables:
           MongoDb__ConnectionString: !Ref MongoConnectionString
           MongoDb__DatabaseName: !Ref MongoDatabaseName
+          Jwt__SigningKey: !Ref JwtSigningKey
       Events:
         Api:
           Type: HttpApi
