@@ -33,6 +33,8 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 builder.Services.AddSingleton<ICustomerRepository, CustomerRepository>();
 builder.Services.AddSingleton<IAccountRepository, AccountRepository>();
 
+// Only needed for local dev (Vite on :5173 calling the API on :5167). In AWS the
+// site and API share one CloudFront origin, so requests are same-origin.
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 builder.Services.AddCors(options =>
 {
@@ -40,8 +42,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",
-                "https://localhost:5173",
-                "http://student-aaron-fraze-bankapi-frontend.s3-website-us-east-1.amazonaws.com")
+                "https://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
