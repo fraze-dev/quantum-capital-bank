@@ -30,7 +30,15 @@ public class UserDocument
 public static class Roles
 {
     public const string Admin = "Admin";
+
+    // Read-only staff: can see everything an admin can, but can't change
+    // anything. Used for the public demo login.
+    public const string Auditor = "Auditor";
+
     public const string Customer = "Customer";
+
+    // For [Authorize(Roles = Roles.Staff)] on read-only admin endpoints.
+    public const string Staff = Admin + "," + Auditor;
 }
 
 public static class UserStatuses

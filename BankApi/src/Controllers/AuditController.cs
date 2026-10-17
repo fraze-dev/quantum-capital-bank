@@ -8,7 +8,7 @@ namespace BankApi.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize(Roles = Roles.Admin)]
+[Authorize(Roles = Roles.Staff)]
 public class AuditController : ControllerBase
 {
     private const int DefaultLimit = 50;

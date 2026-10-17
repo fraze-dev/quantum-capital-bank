@@ -30,7 +30,7 @@ public class AccountsController : ControllerBase
 
     // GET /api/v1/accounts
     // GET /api/v1/accounts?minBalance=500
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = Roles.Staff)]
     [HttpGet]
     public async Task<IActionResult> GetAccounts([FromQuery] decimal? minBalance)
     {
@@ -42,7 +42,7 @@ public class AccountsController : ControllerBase
     [HttpGet("customer/{username}")]
     public async Task<IActionResult> GetAccountsByCustomer(string username)
     {
-        if (!User.IsSelfOrAdmin(username))
+        if (!User.CanViewCustomer(username))
         {
             return StatusCode(403, "You can only view your own accounts.");
         }
@@ -66,7 +66,7 @@ public class AccountsController : ControllerBase
             return NotFound($"No account found with number '{accountNumber}'.");
         }
 
-        if (!User.IsSelfOrAdmin(account.OwnerUsername))
+        if (!User.CanViewCustomer(account.OwnerUsername))
         {
             return StatusCode(403, "You do not own this account.");
         }
@@ -89,7 +89,7 @@ public class AccountsController : ControllerBase
             return BadRequest("Owner username and account type are required.");
         }
 
-        if (!User.IsSelfOrAdmin(request.OwnerUsername))
+        if (!User.CanActForCustomer(request.OwnerUsername))
         {
             return StatusCode(403, "You can only open accounts for yourself.");
         }

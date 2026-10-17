@@ -23,7 +23,7 @@ public class CustomersController : ControllerBase
     }
 
     // GET /api/v1/customers
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = Roles.Staff)]
     [HttpGet]
     public async Task<IActionResult> GetCustomers()
     {
@@ -48,7 +48,7 @@ public class CustomersController : ControllerBase
     [HttpGet("{username}")]
     public async Task<IActionResult> GetCustomerByUsername(string username)
     {
-        if (!User.IsSelfOrAdmin(username))
+        if (!User.CanViewCustomer(username))
         {
             return StatusCode(403, "You can only view your own customer record.");
         }
