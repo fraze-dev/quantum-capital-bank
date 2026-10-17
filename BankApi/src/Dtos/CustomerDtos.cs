@@ -3,6 +3,7 @@ namespace BankApi.Dtos;
 public class CustomerSummary
 {
     public string Username { get; set; }
+    public string Status { get; set; }
     public List<string> AccountNumbers { get; set; }
 }
 

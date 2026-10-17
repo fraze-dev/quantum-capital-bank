@@ -1,5 +1,6 @@
 using BankApi.Models;
 using BankApi.Repositories;
+using MongoDB.Bson;
 
 namespace BankApi.Services;
 
@@ -10,10 +11,14 @@ public class UserService
     private const int MinAdminPasswordLength = 8;
 
     private readonly IUserRepository _users;
+    private readonly IAuditRepository _audit;
+    private readonly MongoTransactions _transactions;
 
-    public UserService(IUserRepository users)
+    public UserService(IUserRepository users, IAuditRepository audit, MongoTransactions transactions)
     {
         _users = users;
+        _audit = audit;
+        _transactions = transactions;
     }
 
     // Returns the user if the username exists and the password matches, else null.
@@ -35,6 +40,57 @@ public class UserService
         };
 
         return await _users.TryCreateAsync(user) ? user : null;
+    }
+
+    // Admin action: disable or re-enable a customer's login, recorded in the
+    // audit log. Their accounts and history are untouched.
+    public async Task<ServiceResult<UserDocument>> ChangeCustomerStatusAsync(
+        string username, string newStatus, string reason, string performedBy)
+    {
+        UserDocument customer = await _users.GetByUsernameAsync(username);
+        if (customer == null || customer.Role != Roles.Customer)
+        {
+            return ServiceResult<UserDocument>.Fail(ServiceError.NotFound, $"No customer found with username '{username}'.");
+        }
+
+        string action = newStatus switch
+        {
+            UserStatuses.Disabled => AuditActions.DisableCustomer,
+            UserStatuses.Active => AuditActions.EnableCustomer,
+            _ => null
+        };
+        if (action == null)
+        {
+            return ServiceResult<UserDocument>.Fail(ServiceError.Invalid, $"Status must be one of: {string.Join(", ", UserStatuses.All)}.");
+        }
+
+        if (customer.Status == newStatus)
+        {
+            return ServiceResult<UserDocument>.Fail(ServiceError.Invalid, $"Customer {username} is already {newStatus.ToLowerInvariant()}.");
+        }
+
+        return await _transactions.RunAsync(async session =>
+        {
+            // Timestamped inside the transaction, as for account status changes.
+            var change = new StatusChange(newStatus, reason, performedBy, DateTime.UtcNow);
+            UserDocument updated = await _users.UpdateStatusAsync(session, username, customer.Status, change)
+                ?? throw new TransactionAbortedException(ServiceError.Conflict,
+                    $"Customer {username} changed while this was being applied. Reload and try again.");
+
+            await _audit.InsertAsync(session, new AuditEntryDocument
+            {
+                Id = ObjectId.GenerateNewId().ToString(),
+                Timestamp = change.ChangedAt,
+                PerformedBy = performedBy,
+                Action = action,
+                TargetType = AuditTargetTypes.Customer,
+                TargetId = username,
+                FromStatus = customer.Status,
+                ToStatus = newStatus,
+                Reason = reason
+            });
+            return updated;
+        });
     }
 
     // The admin's password comes from configuration (Seed:AdminPassword:

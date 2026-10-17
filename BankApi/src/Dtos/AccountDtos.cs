@@ -8,7 +8,10 @@ public class AccountSummary
     public string OwnerUsername { get; set; }
     public string AccountType { get; set; }
     public decimal Balance { get; set; }
+    public string Status { get; set; }
 
+    // The status reason is deliberately left out: it can be internal (e.g.
+    // "suspected fraud"). Admins see it in the audit log.
     public static AccountSummary From(AccountDocument account)
     {
         return new AccountSummary
@@ -16,7 +19,8 @@ public class AccountSummary
             AccountNumber = account.AccountNumber,
             OwnerUsername = account.OwnerUsername,
             AccountType = account.AccountType,
-            Balance = account.Balance
+            Balance = account.Balance,
+            Status = account.Status
         };
     }
 }

@@ -45,4 +45,21 @@ public class UserRepository : IUserRepository
             u => u.Username == username,
             Builders<UserDocument>.Update.Set(u => u.PasswordHash, passwordHash));
     }
+
+    // Changes the status only if it is still expectedStatus; returns null if
+    // someone else changed it first.
+    public async Task<UserDocument> UpdateStatusAsync(
+        IClientSessionHandle session, string username, string expectedStatus, StatusChange change)
+    {
+        return await _users.FindOneAndUpdateAsync(
+            session,
+            Builders<UserDocument>.Filter.Eq(u => u.Username, username)
+                & Builders<UserDocument>.Filter.Eq(u => u.Status, expectedStatus),
+            Builders<UserDocument>.Update
+                .Set(u => u.Status, change.NewStatus)
+                .Set(u => u.StatusReason, change.Reason)
+                .Set(u => u.StatusChangedBy, change.ChangedBy)
+                .Set(u => u.StatusChangedAt, change.ChangedAt),
+            new FindOneAndUpdateOptions<UserDocument> { ReturnDocument = ReturnDocument.After });
+    }
 }

@@ -36,6 +36,7 @@ public class CustomersController : ControllerBase
             .Select(c => new CustomerSummary
             {
                 Username = c.Username,
+                Status = c.Status,
                 AccountNumbers = accountNumbersByOwner[c.Username].ToList()
             })
             .ToList();
@@ -62,6 +63,35 @@ public class CustomersController : ControllerBase
         return Ok(new CustomerSummary
         {
             Username = customer.Username,
+            Status = customer.Status,
+            AccountNumbers = accounts.Select(a => a.AccountNumber).Order().ToList()
+        });
+    }
+
+    // POST /api/v1/customers/{username}/status  { "status": "Disabled", "reason": "..." }
+    // Disable or re-enable a customer's login. Recorded in the audit log.
+    [Authorize(Roles = Roles.Admin)]
+    [HttpPost("{username}/status")]
+    public async Task<IActionResult> ChangeStatus(string username, [FromBody] StatusChangeRequest request)
+    {
+        string requestError = ControllerExtensions.ValidateStatusChange(request);
+        if (requestError != null)
+        {
+            return BadRequest(requestError);
+        }
+
+        ServiceResult<UserDocument> result = await _userService.ChangeCustomerStatusAsync(
+            username, request.Status.Trim(), request.Reason.Trim(), User.Username());
+        if (!result.Succeeded)
+        {
+            return this.ErrorResult(result.Error, result.Message);
+        }
+
+        List<AccountDocument> accounts = await _accountRepository.GetByCustomerUsernameAsync(username);
+        return Ok(new CustomerSummary
+        {
+            Username = result.Value.Username,
+            Status = result.Value.Status,
             AccountNumbers = accounts.Select(a => a.AccountNumber).Order().ToList()
         });
     }
@@ -82,7 +112,7 @@ public class CustomersController : ControllerBase
             return Conflict($"A user with username '{request.Username}' already exists.");
         }
 
-        var summary = new CustomerSummary { Username = customer.Username, AccountNumbers = new List<string>() };
+        var summary = new CustomerSummary { Username = customer.Username, Status = customer.Status, AccountNumbers = new List<string>() };
         return CreatedAtAction(nameof(GetCustomerByUsername), new { username = customer.Username }, summary);
     }
 }

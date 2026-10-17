@@ -116,3 +116,47 @@ Authorization: Bearer {{adminLogin.response.body.$.token}}
 ### All transactions for one customer (filters: username, accountNumber, from, to, limit)
 GET {{BankApi_HostAddress}}/api/v1/transactions?username=jsmith&limit=20
 Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### Freeze an account (status: Active | Frozen | Closed; a reason is required)
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Frozen",
+  "reason": "Suspicious activity reported"
+}
+
+### Unfreeze it
+POST {{BankApi_HostAddress}}/api/v1/accounts/CHK-1002/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Active",
+  "reason": "Cleared after review"
+}
+
+### Disable a customer's login (status: Active | Disabled)
+POST {{BankApi_HostAddress}}/api/v1/customers/agarcia/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Disabled",
+  "reason": "Identity verification failed"
+}
+
+### Re-enable it
+POST {{BankApi_HostAddress}}/api/v1/customers/agarcia/status
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "Active",
+  "reason": "Verified in branch"
+}
+
+### Audit log, newest first (optional targetId = account number or username)
+GET {{BankApi_HostAddress}}/api/v1/audit?limit=20
+Authorization: Bearer {{adminLogin.response.body.$.token}}

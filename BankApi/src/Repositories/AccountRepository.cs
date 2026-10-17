@@ -45,14 +45,16 @@ public class AccountRepository : IAccountRepository
     }
 
     // Adds delta to the balance in a single atomic database operation and
-    // returns the updated account. When requiredBalance is set, the update only
-    // happens if the current balance is at least that much; otherwise nothing
-    // changes and null is returned. Doing the check and the update together
-    // means two simultaneous withdrawals can't both pass the check.
+    // returns the updated account. The update only happens if the account is
+    // Active and, when requiredBalance is set, its balance is at least that
+    // much; otherwise nothing changes and null is returned. Doing the checks
+    // and the update together means two simultaneous withdrawals can't both
+    // pass the check, and a freeze can't slip in between check and update.
     public async Task<AccountDocument> ApplyBalanceChangeAsync(
         IClientSessionHandle session, string accountNumber, decimal delta, decimal? requiredBalance)
     {
-        var filter = Builders<AccountDocument>.Filter.Eq(a => a.AccountNumber, accountNumber);
+        var filter = Builders<AccountDocument>.Filter.Eq(a => a.AccountNumber, accountNumber)
+            & Builders<AccountDocument>.Filter.Eq(a => a.Status, AccountStatuses.Active);
         if (requiredBalance.HasValue)
         {
             filter &= Builders<AccountDocument>.Filter.Gte(a => a.Balance, requiredBalance.Value);
@@ -62,6 +64,30 @@ public class AccountRepository : IAccountRepository
             session,
             filter,
             Builders<AccountDocument>.Update.Inc(a => a.Balance, delta),
+            new FindOneAndUpdateOptions<AccountDocument> { ReturnDocument = ReturnDocument.After });
+    }
+
+    // Changes the status only if it is still expectedStatus (and, for closing,
+    // the balance is still exactly zero). Returns null if either no longer
+    // holds, e.g. someone else changed it first or a deposit just landed.
+    public async Task<AccountDocument> UpdateStatusAsync(
+        IClientSessionHandle session, string accountNumber, string expectedStatus, StatusChange change, bool requireZeroBalance)
+    {
+        var filter = Builders<AccountDocument>.Filter.Eq(a => a.AccountNumber, accountNumber)
+            & Builders<AccountDocument>.Filter.Eq(a => a.Status, expectedStatus);
+        if (requireZeroBalance)
+        {
+            filter &= Builders<AccountDocument>.Filter.Eq(a => a.Balance, 0m);
+        }
+
+        return await _accounts.FindOneAndUpdateAsync(
+            session,
+            filter,
+            Builders<AccountDocument>.Update
+                .Set(a => a.Status, change.NewStatus)
+                .Set(a => a.StatusReason, change.Reason)
+                .Set(a => a.StatusChangedBy, change.ChangedBy)
+                .Set(a => a.StatusChangedAt, change.ChangedAt),
             new FindOneAndUpdateOptions<AccountDocument> { ReturnDocument = ReturnDocument.After });
     }
 

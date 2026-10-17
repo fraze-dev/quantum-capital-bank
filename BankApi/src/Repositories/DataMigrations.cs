@@ -21,7 +21,9 @@ public static class DataMigrations
         ("002-opening-balances", AddOpeningBalancesAsync),
         ("003-account-number-counters", AccountRepository.SyncAccountNumberCountersAsync),
         ("004-users-from-customers", CopyCustomersToUsersAsync),
-        ("005-hash-legacy-passwords", HashLegacyPasswordsAsync)
+        ("005-hash-legacy-passwords", HashLegacyPasswordsAsync),
+        ("006-status-fields", BackfillStatusAsync),
+        ("007-audit-indexes", AuditRepository.EnsureIndexesAsync)
     };
 
     public static async Task RunAsync(IMongoDatabase database)
@@ -131,6 +133,20 @@ public static class DataMigrations
                     Builders<BsonDocument>.Update.Set(field, PasswordUtil.Hash(stored.AsString)));
             }
         }
+    }
+
+    // Accounts and users created before statuses existed have no Status field.
+    // Money only moves for accounts whose Status is Active (checked in the
+    // database query), so give every existing record an explicit Active.
+    private static async Task BackfillStatusAsync(IMongoDatabase database)
+    {
+        await database.GetCollection<BsonDocument>("accounts").UpdateManyAsync(
+            Builders<BsonDocument>.Filter.Exists(nameof(AccountDocument.Status), false),
+            Builders<BsonDocument>.Update.Set(nameof(AccountDocument.Status), AccountStatuses.Active));
+
+        await database.GetCollection<BsonDocument>(UserRepository.CollectionName).UpdateManyAsync(
+            Builders<BsonDocument>.Filter.Exists(nameof(UserDocument.Status), false),
+            Builders<BsonDocument>.Update.Set(nameof(UserDocument.Status), UserStatuses.Active));
     }
 
     private static async Task IgnoreDuplicateAsync(Func<Task> insert)

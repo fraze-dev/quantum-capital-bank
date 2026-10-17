@@ -35,6 +35,12 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid username or password.");
         }
 
+        // Only reached with the right password, so this reveals nothing to a guesser.
+        if (user.Status == UserStatuses.Disabled)
+        {
+            return StatusCode(403, "This account has been disabled. Please contact the bank.");
+        }
+
         (string token, DateTime expiresAt) = _tokenService.CreateToken(user.Username, user.Role);
         return Ok(new LoginResponse { Username = user.Username, Role = user.Role, Token = token, ExpiresAt = expiresAt });
     }

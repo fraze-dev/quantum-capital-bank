@@ -133,8 +133,8 @@ public class AccountsController : ControllerBase
             return error;
         }
 
-        AccountDocument updated = await _accountService.DepositAsync(account, request.Amount, User.Username());
-        return Ok(AccountSummary.From(updated));
+        ServiceResult<AccountDocument> result = await _accountService.DepositAsync(account, request.Amount, User.Username());
+        return result.Succeeded ? Ok(AccountSummary.From(result.Value)) : this.ErrorResult(result.Error, result.Message);
     }
 
     // POST /api/v1/accounts/{accountNumber}/withdraw
@@ -153,13 +153,8 @@ public class AccountsController : ControllerBase
             return error;
         }
 
-        AccountDocument updated = await _accountService.WithdrawAsync(account, request.Amount, User.Username());
-        if (updated == null)
-        {
-            return BadRequest(InsufficientFundsMessage(account));
-        }
-
-        return Ok(AccountSummary.From(updated));
+        ServiceResult<AccountDocument> result = await _accountService.WithdrawAsync(account, request.Amount, User.Username());
+        return result.Succeeded ? Ok(AccountSummary.From(result.Value)) : this.ErrorResult(result.Error, result.Message);
     }
 
     // POST /api/v1/accounts/transfer
@@ -201,13 +196,30 @@ public class AccountsController : ControllerBase
             return StatusCode(403, "You do not own one or both of these accounts.");
         }
 
-        TransferResult result = await _accountService.TransferAsync(fromAccount, toAccount, request.Amount, username);
-        if (result == null)
+        ServiceResult<TransferResult> result = await _accountService.TransferAsync(fromAccount, toAccount, request.Amount, username);
+        if (!result.Succeeded)
         {
-            return BadRequest(InsufficientFundsMessage(fromAccount));
+            return this.ErrorResult(result.Error, result.Message);
         }
 
-        return Ok(new TransferResponse { From = AccountSummary.From(result.From), To = AccountSummary.From(result.To) });
+        return Ok(new TransferResponse { From = AccountSummary.From(result.Value.From), To = AccountSummary.From(result.Value.To) });
+    }
+
+    // POST /api/v1/accounts/{accountNumber}/status  { "status": "Frozen", "reason": "..." }
+    // Freeze, unfreeze or close an account. Recorded in the audit log.
+    [Authorize(Roles = Roles.Admin)]
+    [HttpPost("{accountNumber}/status")]
+    public async Task<IActionResult> ChangeStatus(string accountNumber, [FromBody] StatusChangeRequest request)
+    {
+        string requestError = ControllerExtensions.ValidateStatusChange(request);
+        if (requestError != null)
+        {
+            return BadRequest(requestError);
+        }
+
+        ServiceResult<AccountDocument> result = await _accountService.ChangeStatusAsync(
+            accountNumber, request.Status.Trim(), request.Reason.Trim(), User.Username());
+        return result.Succeeded ? Ok(AccountSummary.From(result.Value)) : this.ErrorResult(result.Error, result.Message);
     }
 
     private async Task<(AccountDocument Account, IActionResult Error)> LoadOwnedAccount(string accountNumber)
@@ -239,13 +251,6 @@ public class AccountsController : ControllerBase
         }
 
         return null;
-    }
-
-    private static string InsufficientFundsMessage(AccountDocument account)
-    {
-        return account.AccountType == "Checking"
-            ? $"Insufficient funds. Overdraft limit is {AccountService.CheckingOverdraftLimit:C}."
-            : "Insufficient funds. Savings accounts do not allow overdraft.";
     }
 
     private async Task<bool> IsCustomerAsync(string username)

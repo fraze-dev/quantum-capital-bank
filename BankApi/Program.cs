@@ -35,6 +35,8 @@ builder.Services
             RoleClaimType = TokenService.RoleClaim,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
+        // Rejects tokens belonging to disabled users (see JwtEvents).
+        options.Events = JwtEvents.Create();
     });
 
 builder.Services.AddAuthorization();
@@ -59,6 +61,8 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IAccountRepository, AccountRepository>();
 builder.Services.AddSingleton<ITransactionRepository, TransactionRepository>();
+builder.Services.AddSingleton<IAuditRepository, AuditRepository>();
+builder.Services.AddSingleton<MongoTransactions>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<AccountService>();
 
