@@ -1,10 +1,13 @@
 # Builds and deploys the whole app:
-#   1. API  -> Lambda + API Gateway (sam build / sam deploy, stack "bankapp")
-#   2. Site -> React build uploaded to S3, CloudFront cache cleared
-# Requires: AWS CLI (configured), SAM CLI, .NET 10 SDK, Amazon.Lambda.Tools, Node.js.
+#   0. Tests -> dotnet test (unit + integration; the latter need Docker running)
+#   1. API   -> Lambda + API Gateway (sam build / sam deploy, stack "bankapp")
+#   2. Site  -> React build uploaded to S3, CloudFront cache cleared
+# Requires: AWS CLI (configured), SAM CLI, .NET 10 SDK, Amazon.Lambda.Tools, Node.js, Docker.
+# Pass -SkipTests to deploy without running the tests first.
 
 param(
-    [string]$FrontendDir = (Join-Path $PSScriptRoot '..\bank-frontend')
+    [string]$FrontendDir = (Join-Path $PSScriptRoot '..\bank-frontend'),
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +25,11 @@ function Get-Secret([string]$name) {
 $connectionString = Get-Secret 'MongoDb:ConnectionString'
 $jwtSigningKey = Get-Secret 'Jwt:SigningKey'
 $adminPassword = Get-Secret 'Seed:AdminPassword'
+
+if (-not $SkipTests) {
+    Write-Host '==> Running tests' -ForegroundColor Cyan
+    dotnet test (Join-Path $PSScriptRoot 'BankApp.slnx') --nologo
+}
 
 Write-Host '==> Building and deploying API' -ForegroundColor Cyan
 Push-Location $PSScriptRoot

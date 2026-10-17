@@ -133,3 +133,6 @@ app.MapGet("/api/v1/health", Health);
 app.MapGet("/", Health);
 
 app.Run();
+
+// Lets the integration tests start this app in memory (WebApplicationFactory<Program>).
+public partial class Program;

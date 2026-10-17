@@ -99,9 +99,7 @@ public class AccountService
     }
 
     // Admin action: freeze, unfreeze or close an account, recorded in the
-    // audit log. Allowed changes:
-    //   Active -> Frozen, Frozen -> Active, Active/Frozen -> Closed (at $0).
-    // Closed is final.
+    // audit log. See AccountStatusRules for which changes are allowed.
     public async Task<ServiceResult<AccountDocument>> ChangeStatusAsync(
         string accountNumber, string newStatus, string reason, string performedBy)
     {
@@ -111,7 +109,7 @@ public class AccountService
             return ServiceResult<AccountDocument>.Fail(ServiceError.NotFound, $"No account found with number '{accountNumber}'.");
         }
 
-        (string action, string error) = CheckStatusChange(account, newStatus);
+        (string action, string error) = AccountStatusRules.Check(account, newStatus);
         if (error != null)
         {
             return ServiceResult<AccountDocument>.Fail(ServiceError.Invalid, error);
@@ -144,36 +142,6 @@ public class AccountService
             });
             return updated;
         });
-    }
-
-    // Returns the audit action for a valid change, or an error message.
-    private static (string Action, string Error) CheckStatusChange(AccountDocument account, string newStatus)
-    {
-        string current = account.Status;
-        if (current == newStatus)
-        {
-            return (null, $"Account {account.AccountNumber} is already {newStatus.ToLowerInvariant()}.");
-        }
-
-        if (current == AccountStatuses.Closed)
-        {
-            return (null, $"Account {account.AccountNumber} is closed. Closed accounts can't be changed.");
-        }
-
-        switch (newStatus)
-        {
-            case AccountStatuses.Frozen:
-                return (AuditActions.FreezeAccount, null);
-            case AccountStatuses.Active:
-                return (AuditActions.UnfreezeAccount, null);
-            case AccountStatuses.Closed when account.Balance != 0m:
-                return (null, $"Account {account.AccountNumber} has a balance of {account.Balance:C}. " +
-                              "Only accounts with a $0.00 balance can be closed.");
-            case AccountStatuses.Closed:
-                return (AuditActions.CloseAccount, null);
-            default:
-                return (null, $"Status must be one of: {string.Join(", ", AccountStatuses.All)}.");
-        }
     }
 
     // Adds money. Aborts the transaction if the account isn't Active.
