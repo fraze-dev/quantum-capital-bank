@@ -28,7 +28,7 @@ public static class AccountStatusRules
             case AccountStatuses.Active:
                 return (AuditActions.UnfreezeAccount, null);
             case AccountStatuses.Closed when account.Balance != 0m:
-                return (null, $"Account {account.AccountNumber} has a balance of {account.Balance:C}. " +
+                return (null, $"Account {account.AccountNumber} has a balance of {Money.Format(account.Balance)}. " +
                               "Only accounts with a $0.00 balance can be closed.");
             case AccountStatuses.Closed:
                 return (AuditActions.CloseAccount, null);

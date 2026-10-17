@@ -171,7 +171,7 @@ public class AccountService
         }
 
         throw new TransactionAbortedException(ServiceError.Invalid, account.AccountType == "Checking"
-            ? $"Insufficient funds. Overdraft limit is {CheckingOverdraftLimit:C}."
+            ? $"Insufficient funds. Overdraft limit is {Money.Format(CheckingOverdraftLimit)}."
             : "Insufficient funds. Savings accounts do not allow overdraft.");
     }
 

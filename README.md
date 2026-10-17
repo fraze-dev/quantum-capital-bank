@@ -71,7 +71,7 @@ The parts that matter most in a banking app, and how they're handled:
 dotnet test BankApp.slnx
 ```
 
-68 tests: unit tests for password hashing, tokens and the account status rules, and integration tests that start the real API in memory against a throwaway MongoDB (via [Testcontainers](https://dotnet.testcontainers.org/), so Docker must be running). They cover the access rules, overdraft limits to the cent, transfer rollback, freezing and disabling, the audit log, and 20 simultaneous withdrawals never exceeding the limit.
+75 tests: unit tests for password hashing, tokens, money formatting and the account status rules, and integration tests that start the real API in memory against a throwaway MongoDB (via [Testcontainers](https://dotnet.testcontainers.org/), so Docker must be running). They cover the access rules, overdraft limits to the cent, transfer rollback, freezing and disabling, the audit log, and 20 simultaneous withdrawals never exceeding the limit.
 
 [CI](.github/workflows/ci.yml) runs the full suite plus a frontend lint and build on every push and pull request.
 
