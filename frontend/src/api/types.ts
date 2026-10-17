@@ -8,6 +8,8 @@ export interface LoginRequest {
 export interface LoginResponse {
   username: string
   role: Role
+  token: string
+  expiresAt: string
 }
 
 export interface CustomerSummary {
@@ -35,12 +37,10 @@ export interface OpenAccountRequest {
 }
 
 export interface AmountRequest {
-  username: string
   amount: number
 }
 
 export interface TransferRequest {
-  username: string
   fromAccountNumber: string
   toAccountNumber: string
   amount: number

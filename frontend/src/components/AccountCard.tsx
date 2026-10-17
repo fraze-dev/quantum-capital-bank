@@ -9,11 +9,9 @@ type Mode = 'idle' | 'deposit' | 'withdraw'
 
 export function AccountCard({
   account,
-  username,
   onUpdated,
 }: {
   account: AccountSummary
-  username: string
   onUpdated: (updated: AccountSummary) => void
 }) {
   const [mode, setMode] = useState<Mode>('idle')
@@ -41,7 +39,7 @@ export function AccountCard({
     setError(null)
     try {
       const action = mode === 'deposit' ? deposit : withdraw
-      const updated = await action(account.accountNumber, { username, amount })
+      const updated = await action(account.accountNumber, { amount })
       onUpdated(updated)
       startMode('idle')
     } catch (err) {

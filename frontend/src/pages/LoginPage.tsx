@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { homePathForRole } from '../auth/roleRouting'
 import { ApiError } from '../api/client'
@@ -7,6 +7,7 @@ import { ApiError } from '../api/client'
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const sessionExpired = (useLocation().state as { sessionExpired?: boolean } | null)?.sessionExpired
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +32,7 @@ export function LoginPage() {
       <form className="auth-form" onSubmit={handleSubmit}>
         <h1>Log in</h1>
         {error && <p className="form-error">{error}</p>}
+        {!error && sessionExpired && <p className="form-error">Your session expired. Please log in again.</p>}
         <label htmlFor="username">Username</label>
         <input
           id="username"

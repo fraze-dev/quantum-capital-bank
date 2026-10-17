@@ -4,11 +4,9 @@ import { ApiError } from '../api/client'
 import type { AccountSummary } from '../api/types'
 
 export function TransferForm({
-  username,
   accounts,
   onTransferred,
 }: {
-  username: string
   accounts: AccountSummary[]
   onTransferred: (from: AccountSummary, to: AccountSummary) => void
 }) {
@@ -46,7 +44,7 @@ export function TransferForm({
     setSubmitting(true)
     setError(null)
     try {
-      const result = await transfer({ username, fromAccountNumber: from, toAccountNumber: to, amount })
+      const result = await transfer({ fromAccountNumber: from, toAccountNumber: to, amount })
       onTransferred(result.from, result.to)
       setAmountInput('')
     } catch (err) {

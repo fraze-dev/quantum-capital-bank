@@ -86,14 +86,13 @@ export function CustomerDashboardPage() {
                 <AccountCard
                   key={account.accountNumber}
                   account={account}
-                  username={user.username}
                   onUpdated={handleAccountUpdated}
                 />
               ))}
             </div>
           )}
 
-          <TransferForm username={user.username} accounts={accounts} onTransferred={handleTransferred} />
+          <TransferForm accounts={accounts} onTransferred={handleTransferred} />
           <NewAccountForm username={user.username} onCreated={handleAccountCreated} />
         </>
       )}

@@ -1,32 +1,32 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { login as loginRequest } from '../api/auth'
+import { setUnauthorizedHandler } from '../api/client'
+import { clearSession, readSession, saveSession } from '../api/session'
 import type { LoginResponse } from '../api/types'
 import { AuthContext } from './authContextObject'
 
-const STORAGE_KEY = 'bank_auth'
-
-function readStoredUser(): LoginResponse | null {
-  const raw = sessionStorage.getItem(STORAGE_KEY)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as LoginResponse
-  } catch {
-    return null
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<LoginResponse | null>(readStoredUser)
+  const [user, setUser] = useState<LoginResponse | null>(readSession)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null)
+      navigate('/login', { replace: true, state: { sessionExpired: true } })
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [navigate])
 
   async function login(username: string, password: string): Promise<LoginResponse> {
     const response = await loginRequest({ username, password })
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(response))
+    saveSession(response)
     setUser(response)
     return response
   }
 
   function logout() {
-    sessionStorage.removeItem(STORAGE_KEY)
+    clearSession()
     setUser(null)
   }
 
