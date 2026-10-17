@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { getCustomers } from '../api/customers'
 import { getAccounts } from '../api/accounts'
 import { AccountsTable } from '../components/AccountsTable'
+import { AdminTransactions } from '../components/AdminTransactions'
 import type { AccountSummary, CustomerSummary } from '../api/types'
 import { ApiError } from '../api/client'
 
@@ -118,6 +119,8 @@ export function AdminDashboardPage() {
               <AccountsTable accounts={filteredAccounts} showOwner />
             </div>
           </section>
+
+          <AdminTransactions customers={customers} />
         </>
       )}
     </div>

@@ -425,10 +425,89 @@ section {
 
 .filter-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .filter-form input {
   width: 140px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table .numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Transaction activity */
+
+.account-card .activity-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.account-card .activity-toggle:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.activity-label {
+  color: var(--text-h);
+}
+
+.activity-date {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.activity-amount {
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.activity-amount.positive {
+  color: var(--success);
+}
+
+.activity-empty {
+  font-size: 13px;
+  color: var(--text);
 }

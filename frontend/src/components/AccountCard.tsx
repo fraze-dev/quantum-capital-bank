@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { deposit, withdraw } from '../api/accounts'
 import { ApiError } from '../api/client'
 import type { AccountSummary } from '../api/types'
+import { AccountActivity } from './AccountActivity'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
@@ -18,6 +19,7 @@ export function AccountCard({
   const [amountInput, setAmountInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showActivity, setShowActivity] = useState(false)
 
   const badgeClass = account.accountType.toLowerCase().includes('check') ? 'checking' : ''
 
@@ -89,6 +91,16 @@ export function AccountCard({
           </div>
         </form>
       )}
+
+      <button
+        type="button"
+        className="activity-toggle"
+        onClick={() => setShowActivity((shown) => !shown)}
+        aria-expanded={showActivity}
+      >
+        {showActivity ? 'Hide recent activity' : 'Show recent activity'}
+      </button>
+      {showActivity && <AccountActivity accountNumber={account.accountNumber} balance={account.balance} />}
     </div>
   )
 }

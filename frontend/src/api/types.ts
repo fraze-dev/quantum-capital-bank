@@ -50,3 +50,27 @@ export interface TransferResponse {
   from: AccountSummary
   to: AccountSummary
 }
+
+export type TransactionType = 'Deposit' | 'Withdrawal' | 'TransferIn' | 'TransferOut' | 'OpeningBalance'
+
+export interface TransactionSummary {
+  id: string
+  accountNumber: string
+  ownerUsername: string
+  type: TransactionType
+  // Signed: positive for money in, negative for money out.
+  amount: number
+  balanceAfter: number
+  counterpartyAccountNumber: string | null
+  performedBy: string
+  timestamp: string
+}
+
+// from is inclusive, to is exclusive (ISO 8601 instants).
+export interface TransactionFilters {
+  username?: string
+  accountNumber?: string
+  from?: string
+  to?: string
+  limit?: number
+}
